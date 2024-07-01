@@ -339,10 +339,20 @@ CUT2: int = int(minutes(check("cut2", "second cut: ", int)))
 CUT3: int = int(minutes(check("cut3", "last cut (i.e. really bad times): ", int)))
 AVG1: int = check("avg1", "length of first average you want to calculate (default 5): ",
                   [str(i) for i in (range(1, LENGTH + 1))], True)
-AVG1 = int(AVG1) if AVG1 else 5
+if AVG1:
+    AVG1 = int(AVG1) 
+elif LENGTH >= 5:
+    AVG1 = 5
+else:
+    AVG1 = None
 AVG2: int = check("avg2", "length of second average you want to calculate (default 12): ",
                   [str(i) for i in (range(1, LENGTH + 1))], True)
-AVG2 = int(AVG2) if AVG2 else 12
+if AVG1:
+    AVG1 = int(AVG1) 
+elif LENGTH >= 12:
+    AVG1 = 12
+else:
+    AVG1 = None
 
 
 # HALF-CONSTANTS
@@ -350,8 +360,8 @@ p1 = {"**best single**:": "",
 "**worst single**:": "",
 "**best counting**:": "",
 "**worst counting**:": "",
-"**best ao5**:": "",
-"**best ao12**:": "",
+f"**best ao{AVG1}**:": AVG1, #so this doesn't print if avg1 is None
+f"**best ao{AVG2}**:": AVG2,
 "**standard deviation**:": ""}
 CUT1_min: float = seconds(str(CUT1))
 CUT2_min: float = seconds(str(CUT2))
@@ -376,10 +386,12 @@ p1["**worst single**:"] = no_paren(time_list[r.index(max(keep(r, ndnf)))])
 #                                                   ^doesn't need minutes since r is list[float]
 p1["**best counting**:"] = min(keep(time_list, nprths), key=minutes)
 p1["**worst counting**:"] = max(keep(keep(time_list, nprths), ndnf), key=minutes)
-p1["**best ao5**:"] = min([avg(frwrd(r, i, AVG1), AVG1) for i in range(LENGTH - AVG1)],
-                          key = avg_compare)
-p1["**best ao12**:"] = min([avg(frwrd(r, i, AVG2), AVG2) for i in range(LENGTH - AVG2)],
-                           key = avg_compare)
+if AVG1:
+    p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r, i, AVG1), AVG1) for i in range(LENGTH - AVG1)],
+                              key = avg_compare)
+if AVG2:
+    p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r, i, AVG2), AVG2) for i in range(LENGTH - AVG2)],
+                               key = avg_compare)
 p1["**standard deviation**:"] = round(statistics.stdev(keep(r, ndnf)), 2)
 
 
