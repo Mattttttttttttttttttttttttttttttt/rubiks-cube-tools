@@ -1,5 +1,5 @@
-"""generates correctly formatted ao5 from 5 solves"""
-import re
+"""generates correctly formatted average from multiple solves"""
+import sys
 
 
 def valid_num(num: int) -> str:
@@ -105,6 +105,26 @@ def minutes(a: str) -> float:
     Returns:
         float: the converted time in seconds
     """
+    if "DNF" in a:
+        return sys.maxsize
+    a = num_part(a)
+    if ":" in a:
+        return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
+    else:
+        return float(a)
+
+
+def minutes_dnf(a: str) -> float | str:
+    """used for the min and max function to convert min:sec into seconds
+
+    Args:
+        a (str): the time in a string
+
+    Returns:
+        float | str: the converted time in seconds or the original DNF
+    """
+    if "DNF" in a:
+        return a
     a = num_part(a)
     if ":" in a:
         return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
@@ -134,37 +154,62 @@ def seconds(a: str | int) -> str:
         return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
 
 
-def avg(solves: list, num_solves: int) -> float | str:
+def avg(solves: list, num_solves: int, delete: int) -> float | str:
     """returns ao5
 
     Args:
-        solves (list): solves
+        solves (list): solves (cannot be DNF average)
         num_solves (int): the length of the average
+        delete (int): how many solves to trim
 
     Returns:
         float/str: average value
     """
     assert num_solves >= 2, "you cannot have an average with less than 2 solves"
     if num_solves == 3: #calculate mean
-        solves = keep(solves, ndnf)
-        if len(solves) < num_solves:
-            return "DNF"
-        else:
-            return round(sum(solves) / num_solves, 3)
+        return round(sum(solves) / num_solves, 3)
     # calculates average
-    solves = keep(solves, ndnf)
     solves = [str(i) for i in solves]
-    if len(solves) < num_solves - 1:
-        return "DNF"
-    elif len(solves) == num_solves - 1:
-        solves.remove(min(solves, key=minutes))
+    if len(keep(solves, ndnf)) >= num_solves - delete:
+        for i in range(delete):
+            trim(solves)
         solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), 3)
+        return round(sum(solves) / (num_solves - 2), num_solves - 2 * delete)
     else:
-        solves.remove(min(solves, key=minutes))
-        solves.remove(max(solves, key=minutes))
+        for i in range(delete):
+            trim(solves)
         solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), 3)
+        return round(sum(solves) / (num_solves - 2), num_solves - 2 * delete)
+
+
+def trim(solves: list) -> list:
+    """trims the slowest and fastest solve once
+
+    Args:
+        solves (list): the original solves list
+
+    Returns:
+        list: the trimmed solves list
+    """
+    # referencing directly to solves because we need to directly alter it
+    solves.remove(min(solves, key=minutes))
+    solves.remove(max(solves, key=minutes))
+
+
+def add_parenthese(solves: list) -> list:
+    """adds parentheses around the slowest and fastest solve once
+
+    Args:
+        solves (list): the original solves list
+
+    Returns:
+        list: the altered solves list
+    """
+    # referencing directly to solves because we need to directly alter it
+    fastest_index = solves.index(min(solves, key=minutes))
+    solves[fastest_index] = "(" + solves[fastest_index] + ")"
+    slowest_index = solves.index(max(solves, key=minutes))
+    solves[slowest_index] = "(" + solves[slowest_index] + ")"
 
 
 def avg_str(num: int, solves: list) -> str:
@@ -185,28 +230,20 @@ def avg_str(num: int, solves: list) -> str:
                 solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return "DNF = " + ", ".join(solves)
         else: #no dnf
-            avg_val = seconds(avg([minutes(i) for i in solves], num))
+            avg_val = seconds(avg([minutes(i) for i in solves], num, 0))
             fastest_index = solves.index(min(solves, key=minutes))
             solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return avg_val + " = " + ", ".join(solves)
     else: #avg
         if dnfs > 1:
+            for i in range(round(num/20) + 1):
+                add_parenthese(solves)
             return "DNF = " + ", ".join(solves)
-        elif dnfs == 1:
-            dnf = re.search(r"DNF(\((\d+:)?\d+\.\d+\))?", " ".join(solves))
-            dnf_index = solves.index(dnf)
-            solves.remove(dnf)
-            avg_val = seconds(avg([minutes(i) for i in solves], num))
-            fastest_index = solves.index(min(solves, key=minutes))
-            solves[fastest_index] = "(" + solves[fastest_index] + ")"
-            solves.insert(dnf_index, "(" + dnf + ")")
-            return avg_val + " = " + ", ".join(solves)
-        else: #no dnf
-            avg_val = seconds(avg([minutes(i) for i in solves], num))
-            fastest_index = solves.index(min(solves, key=minutes))
-            solves[fastest_index] = "(" + solves[fastest_index] + ")"
-            slowest_index = solves.index(max(solves, key=minutes))
-            solves[slowest_index] = "(" + solves[slowest_index] + ")"
+        else:
+            delete = round(num/20) + 1
+            avg_val = seconds(avg([minutes_dnf(i) for i in solves], num, delete))
+            for i in range(delete):
+                add_parenthese(solves)
             return avg_val + " = " + ", ".join(solves)
 
 
