@@ -138,7 +138,7 @@ def no_brackets(time: str) -> str:
     Returns:
         str: the resultant string without the bracket part
     """
-    return re.compile(r"\[[a-zA-Z0-9 ]*\]").sub("", time)
+    return re.compile(r"\[[a-zA-Z0-9 !@#$%^&*()_+-=|\\{};':\"'<>?,./`~]*\]").sub("", time)
 
 def no_paren(time: str) -> str:
     """get rid of the parentheses part in the input string
@@ -317,8 +317,9 @@ print("hi there!\nthis program only supports cstimer\n"\
     "type \"help\" at any point to get help on the question!\n")
 # get DATA
 ao: str = input("your average of ... (paste as one line): ")
-LENGTH: int = find_all(ao, ",") + 1
-time_list: list[str] = [no_brackets(i) for i in ao.split("Time List:")[1].split(", ")]
+time_list: list[str] = no_brackets(ao.split("Time List:")[1])
+time_list = [no_brackets(i) for i in time_list.split(", ")]
+LENGTH: int = len(time_list)
 parentheses: list[str] = [re.compile(r"\(|\)").sub("", i)
                           for i in keep(keep(time_list, ndnf), prths)]
 r: list[float] = []  #refined list
@@ -340,19 +341,19 @@ CUT3: int = int(minutes(check("cut3", "last cut (i.e. really bad times): ", int)
 AVG1: int = check("avg1", "length of first average you want to calculate (default 5): ",
                   [str(i) for i in (range(1, LENGTH + 1))], True)
 if AVG1:
-    AVG1 = int(AVG1) 
+    AVG1 = int(AVG1)
 elif LENGTH >= 5:
     AVG1 = 5
 else:
     AVG1 = None
 AVG2: int = check("avg2", "length of second average you want to calculate (default 12): ",
                   [str(i) for i in (range(1, LENGTH + 1))], True)
-if AVG1:
-    AVG1 = int(AVG1) 
+if AVG2:
+    AVG2 = int(AVG2)
 elif LENGTH >= 12:
-    AVG1 = 12
+    AVG2 = 12
 else:
-    AVG1 = None
+    AVG2 = None
 
 
 # HALF-CONSTANTS
@@ -384,7 +385,7 @@ repeats = {}
 p1["**best single**:"] = min(parentheses, key=minutes)
 p1["**worst single**:"] = no_paren(time_list[r.index(max(keep(r, ndnf)))])
 #                                                   ^doesn't need minutes since r is list[float]
-p1["**best counting**:"] = min(keep(time_list, nprths), key=minutes)
+p1["**best counting**:"] = min(keep(keep(time_list, nprths), ndnf), key=minutes)
 p1["**worst counting**:"] = max(keep(keep(time_list, nprths), ndnf), key=minutes)
 if AVG1:
     p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r, i, AVG1), AVG1) for i in range(LENGTH - AVG1)],
@@ -392,7 +393,7 @@ if AVG1:
 if AVG2:
     p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r, i, AVG2), AVG2) for i in range(LENGTH - AVG2)],
                                key = avg_compare)
-p1["**standard deviation**:"] = round(statistics.stdev(keep(r, ndnf)), 2)
+p1["**standard deviation**:"] = seconds(str(round(statistics.stdev(keep(r, ndnf)), 2)))
 
 
 # p2
@@ -430,7 +431,7 @@ else:
 p2[f"**{CUT3}+s**:"] = len(keep(keep(r, number), three_plus))
 
 # OUTPUT
-print("")
+print("\n## stats:\n**comments**: ")
 # p1
 for key, val in p1.items():
     print(key, val)
@@ -441,7 +442,7 @@ for key, val in p2.items():
         print(key, val)
 # repeats
 
-repeats = [f"{val + " " if val > 2 else ""}{key}{"s" if val > 2 else ""}"
+repeats = [f"{str(val) + " " if val > 2 else ""}{key}{"s" if val > 2 else ""}"
            for key, val in repeat(r).items()]
 print("\n**repeats:**", end = " ")
 for j, val in enumerate(repeats):
