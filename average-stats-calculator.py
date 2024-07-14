@@ -5,7 +5,7 @@ import statistics
 import sys
 
 
-def find_all(parent: str | list, daughter: str) -> int:
+def find_all(parent: list, daughter: str) -> int:
     """count how many substrings is present in the parent string
 
     Args:
@@ -15,6 +15,7 @@ def find_all(parent: str | list, daughter: str) -> int:
     Returns:
         int: the count of how many substrings is present
     """
+    # parent can be string or list, online python interpreter thinks | is an error
     count: int = 0
     if isinstance(parent, list):
         parent = list(parent)
