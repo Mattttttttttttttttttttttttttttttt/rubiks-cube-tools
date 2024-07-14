@@ -357,7 +357,14 @@ def three_plus(a: float):
 print("hi there!\nthis program only supports cstimer\n"\
     "type \"help\" at any point to get help on the question!\n")
 # get DATA
-ao: str = "".join(input("your average of ... (paste as one line): ").split("\n"))
+u = []
+print("your average of ... (paste it here and type \"done\" on a new line): ")
+try:
+    for line in iter(input, "done"):
+        u.append(line)
+except KeyboardInterrupt:
+    exit()
+ao: str = "".join(u).strip()
 time_list: list = no_brackets(ao.split("Time List:")[1])
 time_list = [no_brackets(i) for i in time_list.split(", ")]
 LENGTH: int = len(time_list)
