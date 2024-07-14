@@ -1,8 +1,8 @@
 """this module calculates the stats of a cstimer average"""
 
 import re
-import sys
 import statistics
+from helpers import *
 
 # HELP
 HELP = {"length": "this is the number on the second line of your cstimer average.\n"\
@@ -82,233 +82,8 @@ def check(var: str, inquiry: str, cond, accept_empty: bool=False):
 def integer(num) -> int:
     return int(num)
 
-def find_all(parent: str | list, daughter: str) -> int:
-    """count how many substrings is present in the parent string
-
-    Args:
-        parent (str/list): the parent string to search in
-        daughter (str): the substring needing to be searched
-
-    Returns:
-        int: the count of how many substrings is present
-    """
-    count: int = 0
-    if isinstance(parent, list):
-        parent = list(parent)
-        parent = deepjoin(parent, "")
-    # while parent string contains daughter string
-    while parent.find(daughter) != -1:
-        # limit searching scope
-        parent = parent[parent.find(daughter) + len(daughter):]
-        count += 1
-    return count
-
-def deepjoin(lst: list, joiner: str) -> str:
-    """returns a list joined with joiner
-
-    Args:
-        lst (list): the list to be joined
-        joiner (str): the connector between elements
-
-    Returns:
-        str: the resultant string
-    """
-    lst = list(lst)
-    for i, value in enumerate(lst):
-        lst[i] = str(value)
-    return joiner.join(lst)
-
-def num_part(time: str) -> str:
-    """extracts the decimal part of a string
-
-    Args:
-        time (str): string to be extracted
-
-    Returns:
-        str: decimal in string, minutes converted to seconds
-    """
-    return "".join([i for i in list(time) if (i.isdigit() or i == "." or i == ":")])
-
-def no_brackets(time: str) -> str:
-    """get rid of the bracket part in the input string
-
-    Args:
-        time (str): the string to be processed
-
-    Returns:
-        str: the resultant string without the bracket part
-    """
-    return re.compile(r"\[[a-zA-Z0-9 !@#$%^&*()_+-=|\\{};':\"'<>?,./`~]*\]").sub("", time)
-
-def no_paren(time: str) -> str:
-    """get rid of the parentheses part in the input string
-
-    Args:
-        time (str): the string to be processed
-
-    Returns:
-        str: the resultant string without the parentheses part
-    """
-    return re.compile(r"\(|\)").sub("", time)
-
-def valid_num(num: int) -> str:
-    """adds 0 before a one-digit number
-
-    Args:
-        num (int): number to be modified
-
-    Returns:
-        str: the resultant string
-    """
-    return str(num) if num >= 10 else "0" + str(num)
-
-def minutes(a: str) -> float:
-    """used for the min and max function to convert min:sec into seconds
-
-    Args:
-        a (str): the time in a string
-
-    Returns:
-        float: the converted time in seconds
-    """
-    a = num_part(a)
-    if ":" in a:
-        return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
-    else:
-        return float(a)
-
-def seconds(a: str | int) -> str:
-    """converts a potential min:sec in string or integer back to a min:sec string
-
-    Args:
-        a (str/int): the string or integer to be converted (e.g. 60.67)
-
-    Returns:
-        str: a string of min:sec or the original float
-    """
-    if isinstance(a, int):
-        return str(a) if a < 60 else f"{a // 60}:{valid_num(a % 60)}"
-    if a[-1] == "+":
-        a = float(a[:-1])
-        dec: int = len(str(a).split(".")[1])
-        return str(a) + "+" if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}+"
-    else:
-        a = float(a)
-        dec: int = len(str(a).split(".")[1])
-        return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
-
-def avg(solves: list, num_solves: int) -> float | str:
-    """returns ao5
-
-    Args:
-        solves (list): solves
-        num_solves (int): the length of the average
-
-    Returns:
-        float/str: average value
-    """
-    assert num_solves >= 3, "you cannot have an average with less than 3 solves"
-    solves = keep(solves, ndnf)
-    solves = [str(i) for i in solves]
-    if len(solves) < num_solves - 1:
-        return "DNF"
-    elif len(solves) == num_solves - 1:
-        solves.remove(min(solves, key=minutes))
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), DECIMALS)
-    else:
-        solves.remove(min(solves, key=minutes))
-        solves.remove(max(solves, key=minutes))
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), DECIMALS)
-
-def avg_compare(time: str | float) -> float:
-    """compares averages
-
-    Args:
-        time (str/float): the avg
-
-    Returns:
-        float: the interpretation
-    """
-    return sys.maxsize if time == "DNF" else time
-
-def frwrd(lst: list, start: int, value: int) -> list:
-    """returns a list of *value* values frwrd in *lst* starting at *start* index
-
-    Args:
-        lst (list): list to be processed
-        start (int): starting index
-        value (int): number of values to go
-
-    Returns:
-        list: processed list
-    """
-    result = []
-    for i in range(value):
-        result.append(lst[start + i])
-    return result
-
-def repeat(lst: list) -> dict:
-    """checks for any repeat in the list
-
-    Args:
-        lst (list): the list to be processed
-
-    Returns:
-        dict: a dictionary of repeat to the number of times it appeared
-    """
-    lst = sorted(keep(list(lst), ndnf))
-    result: dict = {}
-    count = 0
-    for i, value in enumerate(lst):
-        if i == len(lst) - 2:
-            break
-        if count != 0:
-            count -= 1
-            continue
-        k = i
-        while value == lst[k+1]:
-            count += 1
-            k += 1
-        if count == 0:
-            continue
-        result[value] = count + 1
-    return result
-
-def keep(thing: str | list, funct) -> str | list:
-    """keep the elements of thing that satisfy funct
-
-    Args:
-        thing (str/list): thing to filter from
-        funct (function): filter function
-        
-    Returns:
-        str/list: filtered thing
-    """
-    thing = list(thing)
-    every = []
-    for i in thing:
-        if not funct(i):
-            every.append(i)
-    for i in every:
-        thing.remove(i)
-    return thing
-
-def prths(a: str):
-    return a[0] == "("
-
-def nprths(a: str):
-    return not a[0] == "("
-
-def ndnf(a):
-    return not "DNF" in a if isinstance(a, str) else True
-
 def three_plus(a: float):
     return a >= CUT3
-
-def number(a):
-    return isinstance(a, float)
 
 
 
@@ -316,7 +91,7 @@ def number(a):
 print("hi there!\nthis program only supports cstimer\n"\
     "type \"help\" at any point to get help on the question!\n")
 # get DATA
-ao: str = input("your average of ... (paste as one line): ")
+ao: str = "".join(input("your average of ... (paste as one line): ").split("\n"))
 time_list: list[str] = no_brackets(ao.split("Time List:")[1])
 time_list = [no_brackets(i) for i in time_list.split(", ")]
 LENGTH: int = len(time_list)
@@ -388,10 +163,12 @@ p1["**worst single**:"] = no_paren(time_list[r.index(max(keep(r, ndnf)))])
 p1["**best counting**:"] = min(keep(keep(time_list, nprths), ndnf), key=minutes)
 p1["**worst counting**:"] = max(keep(keep(time_list, nprths), ndnf), key=minutes)
 if AVG1:
-    p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r, i, AVG1), AVG1) for i in range(LENGTH - AVG1)],
+    p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r, i, AVG1), AVG1, DECIMALS)
+                                     for i in range(LENGTH - AVG1)],
                               key = avg_compare)
 if AVG2:
-    p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r, i, AVG2), AVG2) for i in range(LENGTH - AVG2)],
+    p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r, i, AVG2), AVG2, DECIMALS)
+                                     for i in range(LENGTH - AVG2)],
                                key = avg_compare)
 p1["**standard deviation**:"] = seconds(str(round(statistics.stdev(keep(r, ndnf)), 2)))
 
@@ -442,7 +219,7 @@ for key, val in p2.items():
         print(key, val)
 # repeats
 
-repeats = [f"{str(val) + " " if val > 2 else ""}{key}{"s" if val > 2 else ""}"
+repeats = [(str(val) + " " if val > 2 else "") + str(key) + ("s" if val > 2 else "")
            for key, val in repeat(r).items()]
 print("\n**repeats:**", end = " ")
 for j, val in enumerate(repeats):
