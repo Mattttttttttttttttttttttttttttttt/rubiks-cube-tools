@@ -101,7 +101,7 @@ def minutes(a: str) -> float:
     else:
         return float(a)
 
-def seconds(a: str | int) -> str:
+def seconds(a: str) -> str:
     """converts a potential min:sec in string or integer back to a min:sec string
 
     Args:
@@ -110,6 +110,7 @@ def seconds(a: str | int) -> str:
     Returns:
         str: a string of min:sec or the original float
     """
+    # a can be string or int, online python interpreter thinks | is an error
     if isinstance(a, int):
         return str(a) if a < 60 else f"{a // 60}:{valid_num(a % 60)}"
     a = str(a)
@@ -122,7 +123,7 @@ def seconds(a: str | int) -> str:
         dec: int = len(str(a).split(".")[1])
         return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
 
-def avg(solves: list, num_solves: int, decimals: int) -> float | str:
+def avg(solves: list, num_solves: int, decimals: int) -> float:
     """returns ao5
 
     Args:
@@ -133,6 +134,7 @@ def avg(solves: list, num_solves: int, decimals: int) -> float | str:
     Returns:
         float/str: average value
     """
+    # return value can be float or string, online python interpreter thinks | is an error
     assert num_solves >= 3, "you cannot have an average with less than 3 solves"
     solves = keep(solves, ndnf)
     solves = [str(i) for i in solves]
@@ -148,7 +150,7 @@ def avg(solves: list, num_solves: int, decimals: int) -> float | str:
         solves = [float(i) for i in solves]
         return round(sum(solves) / (num_solves - 2), decimals)
 
-def avg_compare(time: str | float) -> float:
+def avg_compare(time: float) -> float:
     """compares averages
 
     Args:
@@ -157,6 +159,7 @@ def avg_compare(time: str | float) -> float:
     Returns:
         float: the interpretation
     """
+    # time can be string or float, online python interpreter thinks | is an error
     return sys.maxsize if time == "DNF" else time
 
 def frwrd(lst: list, start: int, value: int) -> list:
@@ -202,7 +205,7 @@ def repeat(lst: list) -> dict:
         result[value] = count + 1
     return result
 
-def keep(thing: str | list, funct) -> str | list:
+def keep(thing: list, funct) -> list:
     """keep the elements of thing that satisfy funct
 
     Args:
@@ -212,6 +215,8 @@ def keep(thing: str | list, funct) -> str | list:
     Returns:
         str/list: filtered thing
     """
+    # thing can be string or list, online python interpreter thinks | is an error
+    # output value can be string or list, online python interpreter thinks | is an error
     thing = list(thing)
     every = []
     for i in thing:
@@ -353,12 +358,12 @@ print("hi there!\nthis program only supports cstimer\n"\
     "type \"help\" at any point to get help on the question!\n")
 # get DATA
 ao: str = "".join(input("your average of ... (paste as one line): ").split("\n"))
-time_list: list[str] = no_brackets(ao.split("Time List:")[1])
+time_list: list = no_brackets(ao.split("Time List:")[1])
 time_list = [no_brackets(i) for i in time_list.split(", ")]
 LENGTH: int = len(time_list)
-parentheses: list[str] = [re.compile(r"\(|\)").sub("", i)
+parentheses: list = [re.compile(r"\(|\)").sub("", i)
                           for i in keep(keep(time_list, ndnf), prths)]
-r: list[float] = []  #refined list
+r: list = []  #refined list
 for j in time_list:
     if ndnf(j):
         r.append(minutes(num_part(j)))
