@@ -1,99 +1,6 @@
 """generates correctly formatted average from multiple solves"""
 import sys
-
-
-def valid_num(num: int) -> str:
-    """adds 0 before a one-digit number
-
-    Args:
-        num (int): number to be modified
-
-    Returns:
-        str: the resultant string
-    """
-    return str(num) if num >= 10 else "0" + str(num)
-
-
-def deepjoin(lst: list, joiner: str) -> str:
-    """returns a list joined with joiner
-
-    Args:
-        lst (list): the list to be joined
-        joiner (str): the connector between elements
-
-    Returns:
-        str: the resultant string
-    """
-    lst = list(lst)
-    for i, value in enumerate(lst):
-        lst[i] = str(value)
-    return joiner.join(lst)
-
-
-def ndnf(a)-> bool:
-    """filters dnfs
-
-    Args:
-        a (str | any): the solve
-
-    Returns:
-        bool: whether it's a dnf
-    """
-    return not "DNF" in a if isinstance(a, str) else True
-
-
-def num_part(time: str) -> str:
-    """extracts the decimal part of a string
-
-    Args:
-        time (str): string to be extracted
-
-    Returns:
-        str: decimal in string, minutes converted to seconds
-    """
-    return "".join([i for i in list(time) if (i.isdigit() or i == "." or i == ":")])
-
-
-def keep(thing: str | list, funct) -> str | list:
-    """keep the elements of thing that satisfy funct
-
-    Args:
-        thing (str/list): thing to filter from
-        funct (function): filter function
-        
-    Returns:
-        str/list: filtered thing
-    """
-    thing = list(thing)
-    every = []
-    for i in thing:
-        if not funct(i):
-            every.append(i)
-    for i in every:
-        thing.remove(i)
-    return thing
-
-
-def find_all(parent: str | list, daughter: str) -> int:
-    """count how many substrings is present in the parent string
-
-    Args:
-        parent (str/list): the parent string to search in
-        daughter (str): the substring needing to be searched
-
-    Returns:
-        int: the count of how many substrings is present
-    """
-    count: int = 0
-    if isinstance(parent, list):
-        parent = list(parent)
-        parent = deepjoin(parent, "")
-    # while parent string contains daughter string
-    while parent.find(daughter) != -1:
-        # limit searching scope
-        parent = parent[parent.find(daughter) + len(daughter):]
-        count += 1
-    return count
+from helpers import ndnf, num_part, keep, find_all, seconds
 
 
 def minutes(a: str) -> float:
@@ -131,28 +38,31 @@ def minutes_dnf(a: str) -> float | str:
     else:
         return float(a)
 
-
-def seconds(a: str | int) -> str:
-    """converts a potential min:sec in string or integer back to a min:sec string
+def plus_two_solve(lst: list) -> None:
+    """plus two the last solve in the list
 
     Args:
-        a (str/int): the string or integer to be converted (e.g. 60.67)
-
-    Returns:
-        str: a string of min:sec or the original float
+        lst (list): list of solves
     """
-    if isinstance(a, int):
-        return str(a) if a < 60 else f"{a // 60}:{valid_num(a % 60)}"
-    a = str(a)
-    if a[-1] == "+":
-        a = float(a[:-1])
-        dec: int = len(str(a).split(".")[1])
-        return str(a) + "+" if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}+"
+    if not ndnf(lst[-1]):
+        lst[-1] = seconds(minutes(num_part(lst[-1])) + 2) + "+"
+    elif lst[-1][-1] == "+":
+        pass
     else:
-        a = float(a)
-        dec: int = len(str(a).split(".")[1])
-        return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
+        lst[-1] = seconds(minutes(lst[-1]) + 2) + "+"
 
+def dnf_solve(lst: list) -> None:
+    """dnf the last solve in the list
+
+    Args:
+        lst (list): list of solves
+    """
+    if not ndnf(lst[-1]):
+        pass
+    elif lst[-1][-1] == "+":
+        lst[-1] = "DNF(" + seconds(minutes(num_part(lst[-1])) - 2) + ")"
+    else:
+        lst[-1] = "DNF(" + lst[-1] + ")"
 
 def avg(solves: list, num_solves: int, delete: int) -> float | str:
     """returns ao5
@@ -165,7 +75,7 @@ def avg(solves: list, num_solves: int, delete: int) -> float | str:
     Returns:
         float/str: average value
     """
-    assert num_solves >= 2, "you cannot have an average with less than 2 solves"
+    assert num_solves > 2, "you cannot have an average with less than 3 solves"
     if num_solves == 3: #calculate mean
         return round(sum(solves) / num_solves, 3)
     # calculates average
@@ -174,12 +84,12 @@ def avg(solves: list, num_solves: int, delete: int) -> float | str:
         for i in range(delete):
             trim(solves)
         solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), num_solves - 2 * delete)
+        return round(sum(solves) / (num_solves - 2 * delete), 3)
     else:
         for i in range(delete):
             trim(solves)
         solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), num_solves - 2 * delete)
+        return round(sum(solves) / (num_solves - 2 * delete), 3)
 
 
 def trim(solves: list) -> list:
@@ -196,20 +106,21 @@ def trim(solves: list) -> list:
     solves.remove(max(solves, key=minutes))
 
 
-def add_parenthese(solves: list) -> list:
+def add_parenthese(copy: list, solves: list) -> list:
     """adds parentheses around the slowest and fastest solve once
 
     Args:
+        copy (list): a copy of the list
         solves (list): the original solves list
 
     Returns:
         list: the altered solves list
     """
     # referencing directly to solves because we need to directly alter it
-    fastest_index = solves.index(min(solves, key=minutes))
-    solves[fastest_index] = "(" + solves[fastest_index] + ")"
-    slowest_index = solves.index(max(solves, key=minutes))
-    solves[slowest_index] = "(" + solves[slowest_index] + ")"
+    fastest = copy.pop(copy.index(min(copy, key=minutes)))
+    solves[solves.index(fastest)] = "(" + solves[solves.index(fastest)] + ")"
+    slowest = copy.pop(copy.index(max(copy, key=minutes)))
+    solves[solves.index(slowest)] = "(" + solves[solves.index(slowest)] + ")"
 
 
 def avg_str(num: int, solves: list) -> str:
@@ -235,21 +146,42 @@ def avg_str(num: int, solves: list) -> str:
             solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return avg_val + " = " + ", ".join(solves)
     else: #avg
+        delete = num // 20 + 1
         if dnfs > 1:
-            for i in range(round(num/20) + 1):
-                add_parenthese(solves)
+            copy = list(solves)
+            for i in range(delete):
+                add_parenthese(copy, solves)
             return "DNF = " + ", ".join(solves)
         else:
-            delete = round(num/20) + 1
+            copy = list(solves)
             avg_val = seconds(avg([minutes_dnf(i) for i in solves], num, delete))
             for i in range(delete):
-                add_parenthese(solves)
+                add_parenthese(copy, solves)
             return avg_val + " = " + ", ".join(solves)
-
-
-length: int = int(input("how many solves? "))
-print("input your solves below:")
-average: list = []
-for j in range(length):
-    average.append(input())
-print(avg_str(length, average))
+length: int = 1
+try:
+    length = int(input("how many solves? "))
+except KeyboardInterrupt:
+    exit()
+while length > 2:
+    print("input your solves below:")
+    average: list = []
+    try:
+        j = 0
+        while j < length:
+            command = input()
+            if command == "+":
+                plus_two_solve(average)
+                continue
+            elif command == "d":
+                dnf_solve(average)
+                continue
+            average.append(command)
+            j += 1
+        print(avg_str(length, average))
+    except KeyboardInterrupt:
+        pass
+    try:
+        length = int(input("how many solves? "))
+    except KeyboardInterrupt:
+        exit()
