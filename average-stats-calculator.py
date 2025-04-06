@@ -167,7 +167,7 @@ repeats = {}
 
 
 # p1
-p1["**best single**:"] = min(time_list, key=minutes)
+p1["**best single**:"] = no_paren(min(time_list, key=minutes))
 p1["**worst single**:"] = no_paren(time_list[r.index(max(keep(r, ndnf)))])
 #                                                   ^doesn't need minutes since r is list[float]
 p1["**best counting**:"] = min(keep(keep(time_list, nprths), ndnf), key=minutes)
