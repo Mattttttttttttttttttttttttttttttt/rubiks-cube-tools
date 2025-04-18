@@ -141,7 +141,7 @@ def avg_str(num: int, solves: list) -> str:
                 solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return "DNF = " + ", ".join(solves)
         else: #no dnf
-            avg_val = seconds(avg([minutes(i) for i in solves], num, 0))
+            avg_val = round_decimal(solves, seconds(avg([minutes(i) for i in solves], num, 0)))
             fastest_index = solves.index(min(solves, key=minutes))
             solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return avg_val + " = " + ", ".join(solves)
@@ -154,10 +154,34 @@ def avg_str(num: int, solves: list) -> str:
             return "DNF = " + ", ".join(solves)
         else:
             copy = list(solves)
-            avg_val = seconds(avg([minutes_dnf(i) for i in solves], num, delete))
+            avg_val = round_decimal(solves, seconds(avg([minutes_dnf(i) for i in solves], num, delete)))
             for i in range(delete):
                 add_parenthese(copy, solves)
             return avg_val + " = " + ", ".join(solves)
+
+def round_decimal(solves: list, avg_val: str) -> str:
+    """rounds the avg of solves to the maximum decimal present in the solves
+
+    Args:
+        solves (list): the list of solves
+        avg_val (str): a string of the time of the average
+
+    Returns:
+        str: a rounded strong of the time of the average
+    """
+    decimals = max([len(str(solves[i]).split(".")[1]) for i in range(len(solves))])
+    current_dec = len(avg_val.split(".")[1])
+    if current_dec == decimals:
+        return avg_val
+    else: # need to truncate avg
+        return avg_val[: decimals - current_dec]
+
+
+
+print('''\n"+" to +2 the previous solve,
+"d" to dnf the previous solve,
+"e" to reenter the previous time\n''')
+
 length: int = 1
 try:
     length = int(input("how many solves? "))
@@ -167,8 +191,7 @@ while length > 2:
     print("input your solves below:")
     average: list = []
     try:
-        j = 0
-        while j < length:
+        while len(average) < length:
             command = input()
             if command == "+":
                 plus_two_solve(average)
@@ -176,8 +199,10 @@ while length > 2:
             elif command == "d":
                 dnf_solve(average)
                 continue
+            elif command == "e":
+                del average [-1]
+                continue
             average.append(command)
-            j += 1
         print(avg_str(length, average))
     except KeyboardInterrupt:
         pass
