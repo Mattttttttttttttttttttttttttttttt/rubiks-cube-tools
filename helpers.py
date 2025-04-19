@@ -152,6 +152,31 @@ def round_decimal(solves: list, avg_val: str) -> str:
         if current_dec == 0: # need decimal point as well
             avg_val += "."
         return avg_val + "0" * (decimals - current_dec)
+
+# def avg(solves: list, num_solves: int, decimals: int) -> float | str:
+#     """returns ao5
+
+#     Args:
+#         solves (list[str]): solves
+#         num_solves (int): the length of the average
+#         decimals (int): the amount of decimals
+
+#     Returns:
+#         float/str: average value
+#     """
+#     assert num_solves >= 3, "you cannot have an average with less than 3 solves"
+#     solves = keep(solves, ndnf)
+#     if len(solves) < num_solves - 1: # more than 1 DNF
+#         return "DNF"
+#     elif len(solves) == num_solves - 1: # one DNF
+#         solves.remove(min(solves, key=minutes))
+#         solves = [float(i) for i in solves]
+#         return round(sum(solves) / (num_solves - 2), decimals)
+#     else: # no DNFs
+#         solves.remove(min(solves, key=minutes))
+#         solves.remove(max(solves, key=minutes))
+#         solves = [float(i) for i in solves]
+#         return round(sum(solves) / (num_solves - 2), decimals)
     
 def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     """returns average of num_solves
@@ -167,17 +192,18 @@ def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     delete = num_solves // 20 + 1
     assert num_solves > 2, "you cannot have an average with less than 3 solves"
     if num_solves == 3: #calculate mean
+        copy = [float(i) for i in solves] # solves in float
         if decimals:
-            return round(sum(solves) / num_solves, decimals)
+            return round(sum(copy) / num_solves, decimals)
         else:
-            return round_decimal(solves, sum(solves) / num_solves)
+            return float(round_decimal(solves, str(sum(copy) / num_solves)))
     # calculates average
     # solves = [str(i) for i in solves]
     if len(keep(solves, ndnf)) >= num_solves - delete:
         copy = list(solves)
         for i in range(delete):
             trim(copy)
-        copy = [float(i) for i in copy]
+        copy = [float(i) for i in copy] # solves in float
         if decimals:
             return round(sum(copy) / (num_solves - 2 * delete), decimals)
         else:
