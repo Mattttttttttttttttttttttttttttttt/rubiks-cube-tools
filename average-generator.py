@@ -1,25 +1,5 @@
 """generates correctly formatted average from multiple solves"""
-import sys
-from helpers import ndnf, num_part, keep, find_all, seconds
-
-
-def minutes(a: str) -> float:
-    """used for the min and max function to convert min:sec into seconds
-
-    Args:
-        a (str): the time in a string
-
-    Returns:
-        float: the converted time in seconds
-    """
-    if "DNF" in a:
-        return sys.maxsize
-    a = num_part(a)
-    if ":" in a:
-        return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
-    else:
-        return float(a)
-
+from helpers import ndnf, num_part, find_all, seconds, minutes, avg, round_decimal
 
 def minutes_dnf(a: str) -> float | str:
     """used for the min and max function to convert min:sec into seconds
@@ -64,48 +44,6 @@ def dnf_solve(lst: list) -> None:
     else:
         lst[-1] = "DNF(" + lst[-1] + ")"
 
-def avg(solves: list, num_solves: int, delete: int) -> float | str:
-    """returns ao5
-
-    Args:
-        solves (list): solves (cannot be DNF average)
-        num_solves (int): the length of the average
-        delete (int): how many solves to trim
-
-    Returns:
-        float/str: average value
-    """
-    assert num_solves > 2, "you cannot have an average with less than 3 solves"
-    if num_solves == 3: #calculate mean
-        return round(sum(solves) / num_solves, 3)
-    # calculates average
-    solves = [str(i) for i in solves]
-    if len(keep(solves, ndnf)) >= num_solves - delete:
-        for i in range(delete):
-            trim(solves)
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2 * delete), 3)
-    else:
-        for i in range(delete):
-            trim(solves)
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2 * delete), 3)
-
-
-def trim(solves: list) -> list:
-    """trims the slowest and fastest solve once
-
-    Args:
-        solves (list): the original solves list
-
-    Returns:
-        list: the trimmed solves list
-    """
-    # referencing directly to solves because we need to directly alter it
-    solves.remove(min(solves, key=minutes))
-    solves.remove(max(solves, key=minutes))
-
-
 def add_parenthese(copy: list, solves: list) -> list:
     """adds parentheses around the slowest and fastest solve once
 
@@ -128,7 +66,7 @@ def avg_str(num: int, solves: list) -> str:
 
     Args:
         num (int): the number of solves
-        solves (list): the solves
+        solves (list[str]): the solves
 
     Returns:
         str: the formatted avg
@@ -141,40 +79,18 @@ def avg_str(num: int, solves: list) -> str:
                 solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return "DNF = " + ", ".join(solves)
         else: #no dnf
-            avg_val = round_decimal(solves, seconds(avg([minutes(i) for i in solves], num, 0)))
+            avg_val = round_decimal(solves, seconds(avg([minutes(i) for i in solves], num)))
             fastest_index = solves.index(min(solves, key=minutes))
             solves[fastest_index] = "**" + solves[fastest_index] + "**"
             return avg_val + " = " + ", ".join(solves)
     else: #avg
         delete = num // 20 + 1
-        if dnfs > 1:
-            copy = list(solves)
-            for i in range(delete):
-                add_parenthese(copy, solves)
-            return "DNF = " + ", ".join(solves)
-        else:
-            copy = list(solves)
-            avg_val = round_decimal(solves, seconds(avg([minutes_dnf(i) for i in solves], num, delete)))
-            for i in range(delete):
-                add_parenthese(copy, solves)
-            return avg_val + " = " + ", ".join(solves)
+        copy = list(solves)
+        avg_val = round_decimal(solves, seconds(avg([str(minutes_dnf(i)) for i in solves], num)))
+        for i in range(delete):
+            add_parenthese(copy, solves)
+        return avg_val + " = " + ", ".join(solves)
 
-def round_decimal(solves: list, avg_val: str) -> str:
-    """rounds the avg of solves to the maximum decimal present in the solves
-
-    Args:
-        solves (list): the list of solves
-        avg_val (str): a string of the time of the average
-
-    Returns:
-        str: a rounded strong of the time of the average
-    """
-    decimals = max([len(str(solves[i]).split(".")[1]) for i in range(len(solves))])
-    current_dec = len(avg_val.split(".")[1])
-    if current_dec == decimals:
-        return avg_val
-    else: # need to truncate avg
-        return avg_val[: decimals - current_dec]
 
 
 
@@ -200,7 +116,7 @@ while length > 2:
                 dnf_solve(average)
                 continue
             elif command == "e":
-                del average [-1]
+                del average[-1]
                 continue
             average.append(command)
         print(avg_str(length, average))
