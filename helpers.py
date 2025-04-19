@@ -93,6 +93,8 @@ def minutes(a: str) -> float:
     Returns:
         float: the converted time in seconds
     """
+    if "DNF" in a:
+        return sys.maxsize
     a = num_part(a)
     if ":" in a:
         return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
@@ -108,6 +110,8 @@ def seconds(a: str | int) -> str:
     Returns:
         str: a string of min:sec or the original float
     """
+    if a == "DNF":
+        return a
     if isinstance(a, int):
         return str(a) if a < 60 else f"{a // 60}:{valid_num(a % 60)}"
     a = str(a)
@@ -119,32 +123,92 @@ def seconds(a: str | int) -> str:
         a = float(a)
         dec: int = len(str(a).split(".")[1])
         return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
-
-def avg(solves: list, num_solves: int, decimals: int) -> float | str:
-    """returns ao5
+    
+def round_decimal(solves: list, avg_val: str) -> str:
+    """rounds the avg of solves to the maximum decimal present in the solves
 
     Args:
-        solves (list): solves
+        solves (list[str]): the list of solves
+        avg_val (str): a string of the time of the average
+
+    Returns:
+        str: a rounded string of the time of the average
+    """
+    if avg_val == "DNF": # dont mess with decimals if its DNF
+        return avg_val
+    decimals_of_solves = []
+    for i in solves:
+        decimals_of_solves.append(len(i.split(".")[1]) if "." in i else 0)
+    decimals = max(decimals_of_solves)
+    if decimals == 0: # no decimals (FMC maybe)
+        decimals = 2
+    current_dec = len(avg_val.split(".")[1]) if "." in avg_val else 0
+    if current_dec == decimals:
+        return avg_val
+    elif current_dec > decimals: # need to round
+        # return avg_val[: decimals - current_dec]
+        return str(round(float(avg_val), decimals))
+    else: # need to add 0s
+        if current_dec == 0: # need decimal point as well
+            avg_val += "."
+        return avg_val + "0" * (decimals - current_dec)
+
+# def avg(solves: list, num_solves: int, decimals: int) -> float | str:
+#     """returns ao5
+
+#     Args:
+#         solves (list[str]): solves
+#         num_solves (int): the length of the average
+#         decimals (int): the amount of decimals
+
+#     Returns:
+#         float/str: average value
+#     """
+#     assert num_solves >= 3, "you cannot have an average with less than 3 solves"
+#     solves = keep(solves, ndnf)
+#     if len(solves) < num_solves - 1: # more than 1 DNF
+#         return "DNF"
+#     elif len(solves) == num_solves - 1: # one DNF
+#         solves.remove(min(solves, key=minutes))
+#         solves = [float(i) for i in solves]
+#         return round(sum(solves) / (num_solves - 2), decimals)
+#     else: # no DNFs
+#         solves.remove(min(solves, key=minutes))
+#         solves.remove(max(solves, key=minutes))
+#         solves = [float(i) for i in solves]
+#         return round(sum(solves) / (num_solves - 2), decimals)
+    
+def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
+    """returns average of num_solves
+
+    Args:
+        solves (list[str]): solves in seconds with DNFs as DNFs
         num_solves (int): the length of the average
         decimals (int): the amount of decimals
 
     Returns:
         float/str: average value
     """
-    assert num_solves >= 3, "you cannot have an average with less than 3 solves"
-    solves = keep(solves, ndnf)
-    solves = [str(i) for i in solves]
-    if len(solves) < num_solves - 1:
-        return "DNF"
-    elif len(solves) == num_solves - 1:
-        solves.remove(min(solves, key=minutes))
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), decimals)
+    delete = num_solves // 20 + 1
+    assert num_solves > 2, "you cannot have an average with less than 3 solves"
+    if num_solves == 3: #calculate mean
+        if decimals:
+            return round(sum(solves) / num_solves, decimals)
+        else:
+            return round_decimal(solves, sum(solves) / num_solves)
+    # calculates average
+    # solves = [str(i) for i in solves]
+    if len(keep(solves, ndnf)) >= num_solves - delete:
+        copy = list(solves)
+        for i in range(delete):
+            trim(copy)
+        copy = [float(i) for i in copy]
+        if decimals:
+            return round(sum(copy) / (num_solves - 2 * delete), decimals)
+        else:
+            return float(round_decimal(solves, str(sum(copy) / (num_solves - 2 * delete))))
     else:
-        solves.remove(min(solves, key=minutes))
-        solves.remove(max(solves, key=minutes))
-        solves = [float(i) for i in solves]
-        return round(sum(solves) / (num_solves - 2), decimals)
+        return "DNF"
 
 def avg_compare(time: str | float) -> float:
     """compares averages
@@ -156,6 +220,19 @@ def avg_compare(time: str | float) -> float:
         float: the interpretation
     """
     return sys.maxsize if time == "DNF" else time
+
+def trim(solves: list) -> list:
+    """trims the slowest and fastest solve once
+
+    Args:
+        solves (list): the original solves list
+
+    Returns:
+        list: the trimmed solves list
+    """
+    # referencing directly to solves because we need to directly alter it
+    solves.remove(min(solves, key=minutes))
+    solves.remove(max(solves, key=minutes))
 
 def frwrd(lst: list, start: int, value: int) -> list:
     """returns a list of *value* values frwrd in *lst* starting at *start* index
