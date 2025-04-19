@@ -107,12 +107,16 @@ time_list: list[str] = no_brackets(ao.split("Time List:")[1]).split(", ")
 LENGTH: int = len(time_list)
 parentheses: list[str] = [re.compile(r"\(|\)").sub("", i)
                           for i in keep(keep(time_list, ndnf), prths)]
-r: list[float] = []  #refined list
+r: list[float] = []  # refined list
+r_str: list[str] = []  # refined list but in str
 for j in time_list:
     if ndnf(j):
-        r.append(minutes(num_part(j)))
+        val = minutes(num_part(j))
+        r.append(val)
+        r_str.append(str(val))
     else:
         r.append("DNF")
+        r_str.append("DNF")
 DECIMALS: int = len(num_part(time_list[0]).split(".")[1])
 
 # get SETTINGS
@@ -173,11 +177,11 @@ p1["**worst single**:"] = no_paren(time_list[r.index(max(keep(r, ndnf)))])
 p1["**best counting**:"] = min(keep(keep(time_list, nprths), ndnf), key=minutes)
 p1["**worst counting**:"] = max(keep(keep(time_list, nprths), ndnf), key=minutes)
 if AVG1:
-    p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r, i, AVG1), AVG1, DECIMALS)
+    p1[f"**best ao{AVG1}**:"] = min([avg(frwrd(r_str, i, AVG1), AVG1, DECIMALS)
                                      for i in range(LENGTH - AVG1)],
                               key = avg_compare)
 if AVG2:
-    p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r, i, AVG2), AVG2, DECIMALS)
+    p1[f"**best ao{AVG2}**:"] = min([avg(frwrd(r_str, i, AVG2), AVG2, DECIMALS)
                                      for i in range(LENGTH - AVG2)],
                                key = avg_compare)
 p1["**standard deviation**:"] = seconds(str(round(statistics.stdev(keep(r, ndnf)), 2)))
@@ -190,7 +194,6 @@ p2["**didnt start timer dnfs**:"] = find_all(time_list, "DNF(0.001)"
 if PLUS_TWO:
     p2["**+2s**:"] = find_all(time_list, "+")
 DATA = deepjoin(time_list, "")
-EXTRA = r"\d" if DECIMALS == 3 else ""
 def keep_cut_1_2(a) -> bool:
     if a == "DNF":
         return False
