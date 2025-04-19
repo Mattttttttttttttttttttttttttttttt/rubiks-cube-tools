@@ -152,31 +152,6 @@ def round_decimal(solves: list, avg_val: str) -> str:
         if current_dec == 0: # need decimal point as well
             avg_val += "."
         return avg_val + "0" * (decimals - current_dec)
-
-# def avg(solves: list, num_solves: int, decimals: int) -> float | str:
-#     """returns ao5
-
-#     Args:
-#         solves (list[str]): solves
-#         num_solves (int): the length of the average
-#         decimals (int): the amount of decimals
-
-#     Returns:
-#         float/str: average value
-#     """
-#     assert num_solves >= 3, "you cannot have an average with less than 3 solves"
-#     solves = keep(solves, ndnf)
-#     if len(solves) < num_solves - 1: # more than 1 DNF
-#         return "DNF"
-#     elif len(solves) == num_solves - 1: # one DNF
-#         solves.remove(min(solves, key=minutes))
-#         solves = [float(i) for i in solves]
-#         return round(sum(solves) / (num_solves - 2), decimals)
-#     else: # no DNFs
-#         solves.remove(min(solves, key=minutes))
-#         solves.remove(max(solves, key=minutes))
-#         solves = [float(i) for i in solves]
-#         return round(sum(solves) / (num_solves - 2), decimals)
     
 def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     """returns average of num_solves
