@@ -97,7 +97,7 @@ def minutes(a: str) -> float:
         return sys.maxsize
     a = num_part(a)
     if ":" in a:
-        return float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0])
+        return round(float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0]), len(a.split(".")[1]))
     else:
         return float(a)
 
@@ -147,11 +147,12 @@ def round_decimal(solves: list, avg_val: str) -> str:
         return avg_val
     elif current_dec > decimals: # need to round
         # return avg_val[: decimals - current_dec]
-        return str(round(float(avg_val), decimals))
-    else: # need to add 0s
-        if current_dec == 0: # need decimal point as well
-            avg_val += "."
-        return avg_val + "0" * (decimals - current_dec)
+        avg_val = seconds(round(minutes(avg_val), decimals))
+    # potentially need to add 0s, not else: because round can truncate trailing 0s
+    current_dec = len(avg_val.split(".")[1]) if "." in avg_val else 0
+    if current_dec == 0: # need decimal point as well
+        avg_val += "."
+    return avg_val + "0" * (decimals - current_dec)
 
 # def avg(solves: list, num_solves: int, decimals: int) -> float | str:
 #     """returns ao5
@@ -184,7 +185,7 @@ def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     Args:
         solves (list[str]): solves in seconds with DNFs as DNFs
         num_solves (int): the length of the average
-        decimals (int): the amount of decimals
+        decimals (int): the amount of decimals, if not provided, no rounding will be done
 
     Returns:
         float/str: average value
@@ -192,11 +193,13 @@ def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     delete = num_solves // 20 + 1
     assert num_solves > 2, "you cannot have an average with less than 3 solves"
     if num_solves == 3: #calculate mean
+        if "DNF" in copy:
+            return sys.maxsize
         copy = [float(i) for i in solves] # solves in float
         if decimals:
             return round(sum(copy) / num_solves, decimals)
-        else:
-            return float(round_decimal(solves, str(sum(copy) / num_solves)))
+        else: # no rounding
+            return sum(copy) / num_solves
     # calculates average
     # solves = [str(i) for i in solves]
     if len(keep(solves, ndnf)) >= num_solves - delete:
@@ -206,8 +209,8 @@ def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
         copy = [float(i) for i in copy] # solves in float
         if decimals:
             return round(sum(copy) / (num_solves - 2 * delete), decimals)
-        else:
-            return float(round_decimal(solves, str(sum(copy) / (num_solves - 2 * delete))))
+        else: # no rounding
+            return sum(copy) / (num_solves - 2 * delete)
     else:
         return "DNF"
 
