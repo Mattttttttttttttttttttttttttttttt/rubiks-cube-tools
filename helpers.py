@@ -138,7 +138,7 @@ def round_decimal(solves: list, avg_val: str) -> str:
         return avg_val
     decimals_of_solves = []
     for i in solves:
-        decimals_of_solves.append(len(i.split(".")[1]) if "." in i else 0)
+        decimals_of_solves.append(len(num_part(i).split(".")[1]) if "." in i else 0)
     decimals = max(decimals_of_solves)
     if decimals == 0: # no decimals (FMC maybe)
         decimals = 2
