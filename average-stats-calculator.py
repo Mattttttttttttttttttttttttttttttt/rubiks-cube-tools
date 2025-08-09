@@ -13,7 +13,7 @@ HELP = {"length": "this is the number on the second line of your cstimer average
         "+2": "does your average have a decent amount of +2s, or "\
                 "+2 is very significant for this average?\n"\
                     "by saying yes you would gain access to the statistics:"\
-                        "total +2s, +2 to range 1, +2 to range 2. (ranges will be determined soon)",
+                        "total +2s, un+2ed avg, +2 to range 1, +2 to range 2. (ranges will be determined soon)",
         "cut1": "this is the first cut. "\
                 "you will be able to view how many solves are between this and the next cut, "\
                     "and if you selected \"view +2\", "\
@@ -102,12 +102,20 @@ try:
         u.append(line)
 except KeyboardInterrupt:
     exit()
-ao: str = "".join(u).strip()
-time_list: list[str] = no_brackets(ao.split("Time List:")[1]).split(", ")
-LENGTH: int = len(time_list)
+u = "".join(u).strip().split("avg of ")[1] # e.g. "100: 6.969\n\nTime List:\n..."
+AVG_VAL: int | str = u.split(": ")[1].split("\n")[0] # e.g. 6.969 
+ao: str = u.split("Time List:")[1]
+time_list: list[str] = no_brackets(ao).split(", ")
+LENGTH: int = len(time_list) # e.g. 100
 parentheses: list[str] = [re.compile(r"\(|\)").sub("", i)
                           for i in keep(keep(time_list, ndnf), prths)]
-r: list[float] = []  # refined list
+first_un_paren: float = float(keep(time_list, nprths)[0])
+            # first counted value in the avg, used as an inbetween
+def smaller_than_first_un_paren(a: str) -> bool:
+    return float(num_part(a)) < first_un_paren
+BETTER_TRIM: int = len(keep(parentheses, smaller_than_first_un_paren))
+WORSE_TRIM: int = len(keep(time_list, prths)) - BETTER_TRIM
+r: list[float] = []  # refined list (DNF as "DNF", in seconds, no "+")
 r_str: list[str] = []  # refined list but in str
 for j in time_list:
     if ndnf(j):
@@ -117,7 +125,7 @@ for j in time_list:
     else:
         r.append("DNF")
         r_str.append("DNF")
-DECIMALS: int = len(num_part(time_list[0]).split(".")[1])
+DECIMALS: int = max([len(num_part(i).split(".")[1]) for i in time_list])
 
 # get SETTINGS
 print("")
@@ -164,6 +172,7 @@ CUT_2_TO_3 = f"+2 to {CUT_2_TO_3}" if PLUS_TWO else CUT_2_TO_3
 p2 = {"**dnfs**:": 0,
     "**didnt start timer dnfs**:": 0,
     "**+2s**:": None,
+    f"**un+2ed ao{LENGTH}**:": None,
     f"**{CUT_1_TO_2}**:": 0,
     f"**{CUT_2_TO_3}**:": 0,
     f"**{CUT3}+s**:": 0}
@@ -193,6 +202,22 @@ p2["**didnt start timer dnfs**:"] = find_all(time_list, "DNF(0.001)"
                                              if DECIMALS == 3 else "DNF(0.01)")
 if PLUS_TWO:
     p2["**+2s**:"] = find_all(time_list, "+")
+    if AVG_VAL == "DNF":
+        p2[f"**un+2ed ao{LENGTH}**:"] = "DNF"
+    else:
+        unplus_2 = [] # DNFs as "DNF", +2s un+2ed, in seconds
+        for i in time_list:
+            if "DNF" in i:
+                unplus_2.append("DNF")
+            elif "+" in i:
+                unplus_2.append(str(minutes(no_paren(i)[:-1]) - 2)) # un +2
+            else: # a normal time
+                unplus_2.append(str(minutes(no_paren(i))))
+        unplus_2.sort(key=minutes)
+        unplus_2 = unplus_2[BETTER_TRIM: len(unplus_2) - WORSE_TRIM]
+        unplus_2 = [float(i) for i in unplus_2]
+        p2[f"**un+2ed ao{LENGTH}**:"] = round(float(seconds(sum(unplus_2) / len(unplus_2))), DECIMALS)
+
 DATA = deepjoin(time_list, "")
 def keep_cut_1_2(a) -> bool:
     if a == "DNF":
