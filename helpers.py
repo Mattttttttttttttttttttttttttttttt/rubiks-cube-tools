@@ -26,7 +26,7 @@ def find_all(parent: str | list, daughter: str) -> int:
     return count
 
 def deepjoin(lst: list, joiner: str) -> str:
-    """returns a list joined with joiner
+    """returns a list converted into strs and joined with joiner
 
     Args:
         lst (list): the list to be joined
@@ -193,7 +193,7 @@ def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     delete = num_solves // 20 + 1
     assert num_solves > 2, "you cannot have an average with less than 3 solves"
     if num_solves == 3: #calculate mean
-        if "DNF" in copy:
+        if "DNF" in solves:
             return sys.maxsize
         copy = [float(i) for i in solves] # solves in float
         if decimals:
@@ -291,14 +291,11 @@ def keep(thing: str | list, funct) -> str | list:
     Returns:
         str/list: filtered thing
     """
-    thing = list(thing)
-    every = []
+    result = []
     for i in thing:
-        if not funct(i):
-            every.append(i)
-    for i in every:
-        thing.remove(i)
-    return thing
+        if funct(i):
+            result.append(i)
+    return result if isinstance(thing, list) else "".join(result)
 
 def prths(a: str)-> bool:
     """used for the keep function to keep all solves with parentheses
@@ -323,7 +320,7 @@ def nprths(a: str)-> bool:
     return not a[0] == "("
 
 def ndnf(a)-> bool:
-    """filters dnfs
+    """filters out dnfs
 
     Args:
         a (str | any): the solve
@@ -332,6 +329,17 @@ def ndnf(a)-> bool:
         bool: whether it's a dnf
     """
     return not "DNF" in a if isinstance(a, str) else True
+
+def ydnf(a) -> bool:
+    """filters out non-dnfs
+
+    Args:
+        a (str | any): the solve
+
+    Returns:
+        bool: whether it's a non-dnf
+    """
+    return "DNF" in a if isinstance(a, str) else False
 
 def number(a)-> bool:
     """determine if the input is a float
