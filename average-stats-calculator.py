@@ -3,7 +3,7 @@
 import re
 import statistics
 from helpers import no_brackets, keep, ndnf, prths, minutes, num_part, seconds, no_paren, frwrd
-from helpers import avg_compare, find_all, deepjoin, repeat, nprths, number, avg
+from helpers import avg_compare, find_all, deepjoin, repeat, nprths, avg, no_multiphase
 
 # HELP
 HELP = {"length": "this is the number on the second line of your cstimer average.\n"\
@@ -83,12 +83,6 @@ def check(var: str, inquiry: str, cond, accept_empty: bool=False):
         exit()
     return result
 
-def integer(num) -> int:
-    return int(num)
-
-def three_plus(a: float):
-    return a >= CUT3
-
 
 
 # CODE
@@ -105,15 +99,13 @@ except KeyboardInterrupt:
 u = "".join(u).strip().split("avg of ")[1] # e.g. "100: 6.969\n\nTime List:\n..."
 AVG_VAL: int | str = u.split(": ")[1].split("\n")[0] # e.g. 6.969 
 ao: str = u.split("Time List:")[1]
-time_list: list[str] = no_brackets(ao).split(", ")
+time_list: list[str] = no_multiphase(no_brackets(ao)).split(", ")
 LENGTH: int = len(time_list) # e.g. 100
 parentheses: list[str] = [re.compile(r"\(|\)").sub("", i)
                           for i in keep(keep(time_list, ndnf), prths)]
 first_un_paren: float = float(keep(time_list, nprths)[0])
             # first counted value in the avg, used as an inbetween
-def smaller_than_first_un_paren(a: str) -> bool:
-    return float(num_part(a)) < first_un_paren
-BETTER_TRIM: int = len(keep(parentheses, smaller_than_first_un_paren))
+BETTER_TRIM: int = len(keep(parentheses, lambda a: float(num_part(a)) < first_un_paren))
 WORSE_TRIM: int = len(keep(time_list, prths)) - BETTER_TRIM
 r: list[float] = []  # refined list (DNF as "DNF", in seconds, no "+")
 r_str: list[str] = []  # refined list but in str
@@ -216,34 +208,23 @@ if PLUS_TWO:
         unplus_2.sort(key=minutes)
         unplus_2 = unplus_2[BETTER_TRIM: len(unplus_2) - WORSE_TRIM]
         unplus_2 = [float(i) for i in unplus_2]
-        p2[f"**un+2ed ao{LENGTH}**:"] = round(float(seconds(sum(unplus_2) / len(unplus_2))), DECIMALS)
+        p2[f"**un+2ed ao{LENGTH}**:"] = round(float(seconds(sum(unplus_2) / len(unplus_2))),
+                                              DECIMALS)
 
 DATA = deepjoin(time_list, "")
-def keep_cut_1_2(a) -> bool:
-    if a == "DNF":
-        return False
-    return CUT1 < a < CUT2
-def keep_cut_2_3(a) -> bool:
-    if a == "DNF":
-        return False
-    return CUT2 < a < CUT3
-def keep_plus_cut_1_2(a) -> bool:
-    if "+" in a:
-        return CUT1 < float(minutes(num_part(a))) < CUT2
-def keep_plus_cut_2_3(a) -> bool:
-    if "+" in a:
-        return CUT2 < float(minutes(num_part(a))) < CUT3
-ONE_POINT = str(len(keep(r, keep_cut_1_2)))
-TWO_POINT = str(len(keep(r, keep_cut_2_3)))
+ONE_POINT = str(len(keep(r, lambda a: a != "DNF" and CUT1 < a < CUT2)))
+TWO_POINT = str(len(keep(r, lambda a: a != "DNF" and CUT2 < a < CUT3)))
 if PLUS_TWO:
-    ONE_PLUS = str(len(keep(time_list, keep_plus_cut_1_2)))
+    ONE_PLUS = str(len(keep(time_list, lambda a:
+        "+" in a and CUT1 < float(minutes(num_part(a))) < CUT2)))
     p2[f"**{CUT_1_TO_2}**:"] = ONE_PLUS + "/" + ONE_POINT
-    TWO_PLUS = str(len(keep(time_list, keep_plus_cut_2_3)))
+    TWO_PLUS = str(len(keep(time_list, lambda a:
+        "+" in a and CUT2 < float(minutes(num_part(a))) < CUT3)))
     p2[f"**{CUT_2_TO_3}**:"] = TWO_PLUS + "/" + TWO_POINT
 else:
     p2[f"**{CUT_1_TO_2}**:"] = ONE_POINT
     p2[f"**{CUT_2_TO_3}**:"] = TWO_POINT
-p2[f"**{CUT3}+s**:"] = len(keep(keep(r, number), three_plus))
+p2[f"**{CUT3}+s**:"] = len(keep(keep(r, lambda a: isinstance(a, float)), lambda a: a >= CUT3))
 
 # OUTPUT
 print("\n## stats:\n**comments**: ")
@@ -251,17 +232,21 @@ print("\n## stats:\n**comments**: ")
 for key, val in p1.items():
     print(key, val)
 # p2
-print("## counts")
+if p2["**+2s**:"] == 0:
+    del p2[f"**un+2ed ao{LENGTH}**:"] # if there is no +2s then no point in displaying this
 for key, val in p2.items():
     if val is not None:
         print(key, val)
-# repeats
 
+# repeats
 repeats = [(str(val) + " " if val > 2 else "") + str(key) + ("s" if val > 2 else "")
            for key, val in repeat(r).items()]
-print("\n**repeats:**", end = " ")
-for j, val in enumerate(repeats):
-    if j == len(repeats) - 1:
-        print(val)
-    else:
-        print(val + ", ", end = "")
+if len(repeats) == 0:
+    print("\n**repeats:** none")
+else:
+    print("\n**repeats:**", end = " ")
+    for j, val in enumerate(repeats):
+        if j == len(repeats) - 1:
+            print(val)
+        else:
+            print(val + ", ", end = "")
