@@ -62,6 +62,18 @@ def no_brackets(time: str) -> str:
     """
     return re.sub(r"\[.*?\]", "", time)
 
+def no_multiphase(time: str) -> str:
+    """get rid of the equal sign part in the input string
+
+    Args:
+        time (str): the string to be processed
+
+    Returns:
+        str: the resultant string without the equal sign part
+    """
+    result = re.sub(r"=.*?\,", ",", time)
+    return re.sub(r"=.*?$", "", result)
+
 def no_paren(time: str) -> str:
     """get rid of the parentheses part in the input string
 
@@ -281,6 +293,38 @@ def repeat(lst: list) -> dict:
         result[value] = count + 1
     return result
 
+def check(inquiry: str, cond, accept_empty: bool=False):
+    """keep input()ing the user until the input satisfies the condition
+
+    Args:
+        inquiry (str): the text to display on the input()
+        cond (list/function): the list the inputted value has to be in, 
+                              or the function that should work on the variable
+        accept_empty (bool): whether None is accepted as a reply
+        
+    Returns:
+        the value to be assigned to the variable
+    """
+    try:
+        if isinstance(cond, list):
+            result = input(inquiry)
+            while result not in cond and not (accept_empty and result == ""):
+                result = input("don't think that's what I asked for, try again: ")
+        else: #cond is a function
+            a = True
+            result = input(inquiry)
+            while a:
+                if not (accept_empty and result == ""):
+                    break
+                try:
+                    cond(result)
+                    a = False
+                except ValueError:
+                    result = input("don't think that's what I asked for, try again: ")
+    except KeyboardInterrupt:
+        exit()
+    return result
+
 def keep(thing: str | list, funct) -> str | list:
     """keep the elements of thing that satisfy funct
 
@@ -340,14 +384,3 @@ def ydnf(a) -> bool:
         bool: whether it's a non-dnf
     """
     return "DNF" in a if isinstance(a, str) else False
-
-def number(a)-> bool:
-    """determine if the input is a float
-
-    Args:
-        a (Any): the thing to be analyzed
-
-    Returns:
-        bool: whether a is a float
-    """
-    return isinstance(a, float)
