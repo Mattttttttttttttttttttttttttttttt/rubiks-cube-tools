@@ -1,4 +1,6 @@
 """this module takes an aoxx and return a list of aoxs in the aoxx"""
+# this could also be used in conjunction with less_than_x.py to calculate
+# how many rolling average is sub a certain time
 import sys
 from helpers import avg, no_brackets, minutes, num_part, ndnf, check, frwrd, no_multiphase
 
@@ -20,7 +22,7 @@ def no_dnf_max(lst: list) -> float:
 
 # code
 u = []
-print("your full average of ... (just paste it in here): ")
+print("your full average of ... (just paste it in here, \"done\" once done): ")
 try:
     for line in iter(input, "done"):
         u.append(line)
@@ -40,9 +42,9 @@ for j in time_list:
         r.append("DNF")
 
 AVG = int(check("how long of an avg to split: ", int))
-avg_list: list[int] = [avg(frwrd(r, i, AVG), AVG, DECIMALS) for i in range(LENGTH - AVG)]
+avg_list: list = [avg(frwrd(r, i, AVG), AVG, DECIMALS) for i in range(LENGTH - AVG)]
 for i, val in enumerate(avg_list): # undo avg()'s sys.maxsize to means
     if val == sys.maxsize:
         avg_list[i] = "DNF"
-        
+
 print(avg_list)
