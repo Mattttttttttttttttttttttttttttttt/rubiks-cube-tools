@@ -85,11 +85,11 @@ def no_paren(time: str) -> str:
     """
     return re.compile(r"\(|\)").sub("", time)
 
-def valid_num(num: int) -> str:
+def valid_num(num: int | float) -> str:
     """adds 0 before a one-digit number
 
     Args:
-        num (int): number to be modified
+        num (int/float): number to be modified
 
     Returns:
         str: the resultant string
@@ -109,21 +109,22 @@ def minutes(a: str) -> float:
         return sys.maxsize
     a = num_part(a)
     if ":" in a:
-        return round(float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0]), len(a.split(".")[1]))
+        return round(float(a.split(":")[1]) + 60 * int(a.split(":", maxsplit=1)[0]),
+                     len(a.split(".")[1]))
     else:
         return float(a)
 
-def seconds(a: str | int) -> str:
-    """converts a potential min:sec in string or integer back to a min:sec string
+def seconds(a: str | float | int) -> str:
+    """converts a potential min:sec in string or float back to a min:sec string
 
     Args:
-        a (str/int): the string or integer to be converted (e.g. 60.67)
+        a (str/float/int): the string or integer to be converted (e.g. 60.67)
 
     Returns:
         str: a string of min:sec or the original float
     """
     if a == "DNF":
-        return a
+        return a # type: ignore
     if isinstance(a, int):
         return str(a) if a < 60 else f"{a // 60}:{valid_num(a % 60)}"
     a = str(a)
@@ -135,7 +136,7 @@ def seconds(a: str | int) -> str:
         a = float(a)
         dec: int = len(str(a).split(".")[1])
         return str(a) if a < 60 else f"{int(a // 60)}:{valid_num(round(a % 60, dec))}"
-    
+
 def round_decimal(solves: list, avg_val: str) -> str:
     """rounds the avg of solves to the maximum decimal present in the solves
 
@@ -190,7 +191,7 @@ def round_decimal(solves: list, avg_val: str) -> str:
 #         solves.remove(max(solves, key=minutes))
 #         solves = [float(i) for i in solves]
 #         return round(sum(solves) / (num_solves - 2), decimals)
-    
+
 def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
     """returns average of num_solves
 
@@ -235,16 +236,13 @@ def avg_compare(time: str | float) -> float:
     Returns:
         float: the interpretation
     """
-    return sys.maxsize if time == "DNF" else time
+    return sys.maxsize if time == "DNF" else time # type: ignore
 
-def trim(solves: list) -> list:
+def trim(solves: list) -> None:
     """trims the slowest and fastest solve once
 
     Args:
-        solves (list): the original solves list
-
-    Returns:
-        list: the trimmed solves list
+        solves (list): the original solves list, trimmed directly
     """
     # referencing directly to solves because we need to directly alter it
     solves.remove(min(solves, key=minutes))
@@ -325,7 +323,7 @@ def check(inquiry: str, cond, accept_empty: bool=False):
         exit()
     return result
 
-def keep(thing: str | list, funct) -> str | list:
+def keep(thing: list, funct) -> list:
     """keep the elements of thing that satisfy funct
 
     Args:
@@ -335,11 +333,7 @@ def keep(thing: str | list, funct) -> str | list:
     Returns:
         str/list: filtered thing
     """
-    result = []
-    for i in thing:
-        if funct(i):
-            result.append(i)
-    return result if isinstance(thing, list) else "".join(result)
+    return list(filter(funct, thing))
 
 def prths(a: str)-> bool:
     """used for the keep function to keep all solves with parentheses
