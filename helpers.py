@@ -192,7 +192,7 @@ def round_decimal(solves: list, avg_val: str) -> str:
 #         solves = [float(i) for i in solves]
 #         return round(sum(solves) / (num_solves - 2), decimals)
 
-def avg(solves: list, num_solves: int, decimals: int = 0) -> float | str:
+def avg(solves: list[str], num_solves: int, decimals: int = 0) -> float | str:
     """returns average of num_solves
 
     Args:
@@ -312,10 +312,11 @@ def check(inquiry: str, cond, accept_empty: bool=False):
             a = True
             result = input(inquiry)
             while a:
-                if not (accept_empty and result == ""):
+                if accept_empty and result == "":
                     break
                 try:
-                    cond(result)
+                    if cond(result) is False:
+                        raise ValueError
                     a = False
                 except ValueError:
                     result = input("don't think that's what I asked for, try again: ")
