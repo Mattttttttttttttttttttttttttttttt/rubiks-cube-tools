@@ -97,7 +97,7 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
     alg = re.sub(r"\[.*\]", "", alg).strip()
     l_f_lst = [-1] if not l_f_lst else l_f_lst
     k_i = ob_karn(alg) #whether the scram is in karn
-    k = ob_karn(alg) if k is None else k # whether to put it in karn
+    k = k_i if k is None else k # whether to put it in karn
 
     if k_i:
         # turn it into numbers
@@ -126,12 +126,12 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
     if l_f_lst != [""] and max(l_f_lst) > len(alst)-3:
         raise ValueError(f"You cannot modify the move after the {max(l_f_lst)}th slice!")
     if alst[0].lower() != "a":
-        alst[0] = "A" if changes_alignment(int(alst[0][0:sep_index(alst[0])])) else "a"
-        alst[-1] = "A" if changes_alignment(int(alst[-1][0:sep_index(alst[-1])])) else "a"
+        alst[0] = "A" if int(alst[0][-1]) % 3 == 0 else "a"
+        alst[-1] = "A" if int(alst[-1][-1]) % 3 == 0 else "a"
 
     # now alg in "A 5-1 -51 A"
-    l_fing = 1 in l_f_lst
-    facing_d = l_fing # whether we need to l_f this move
+    l_fing = False
+    facing_d = False # whether we need to l_f this move
     for i in range(1, len(alst) -2): # avoid checking the last actual move also
         m = alst[i]
         m = l_f(m) if facing_d else m
@@ -157,7 +157,7 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
     comment += "" if alg[0:1] == alg [-1:] else " (alignment changes)"
     return alg + comment
 
-print("input alg (parentheses ok, comma ok, slash ok, karn ok): ")
+print("input alg (parentheses ok, comma ok, slash ok, karn ok, starts at no misaligns): ")
 u = []
 try:
     for line in iter(input, ""):
@@ -171,19 +171,21 @@ if len(u) > 1:
     if layer_flip == "yes":
         l_f_pos_t = check("where? (leave empty to be at the start, " +
                         "else indicate after which slices, separated by comma no spaces): ",
-                        lambda ans: all([ch.isdigit() for ch in ans.strip().split(",")]),
+                        lambda ans: all(ch.isdigit() for ch in ans.strip().split(",")),
                         True).strip().split(",")
         l_f_pos = [1] if l_f_pos_t == [""] else [int(ch) for ch in l_f_pos_t] # [2,3], etc.
     else:
         l_f_pos = []
     norm = check("perform normalization? (yes/no, leave empty to be yes): ",
                 lambda ans: ans.lower().strip() in ["yes", "no"], True).lower().strip()
-    normb = False if norm == "no" else True
+    normb = norm == "no"
     karn = check("in karn? (yes/no, leave empty to follow alg formats): ",
                 lambda ans: ans.lower().strip() in ["yes", "no"],
                 True).lower().strip()
     karnb = True if karn == "yes" else False if karn == "no" else None
-    print(*list({normalize(line,l_f_pos,karnb,not normb) for line in u}), sep="\n")
+    print(*list({normalize(line,l_f_pos,karnb,normb) for line in filter(
+            lambda a: a[0:9] != "searching", u # get rid of the searching lines first
+        )}), sep="\n")
 else:
     # one alg, so we can do a recursion of modification
     line = u[0]
@@ -200,10 +202,10 @@ else:
             l_f_pos = []
         norm = check("perform normalization? (yes/no): ",
                     lambda ans: ans.lower().strip() in ["yes", "no"], True).lower().strip()
-        normb = False if norm == "no" else True
+        normb = norm == "no"
         karn = check("in karn? (yes/no, leave empty to follow alg formats): ",
                     lambda ans: ans.lower().strip() in ["yes", "no"],
                     True).lower().strip()
         karnb = True if karn == "yes" else False if karn == "no" else None
-        line = normalize(line,l_f_pos,karnb,not normb)
+        line = normalize(line,l_f_pos,karnb,normb)
         print(line)
