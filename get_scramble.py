@@ -778,7 +778,8 @@ def unkarnify(scramble: str) -> str:
         str: before karnifying, e.g. "A/-3,0/-1,2/1,-2/-1,2/3,3/-2,-2/3,3/-3,0/-1,2/3,3/3,3/-2,4/A"
     """
     # incomplete, has to decompose moves like 6-3, which I'm too lazy to do rn.
-    return add_commas(" / ".join(dict_replace(dict_replace(scramble, NORM), NORM).split(" ")))
+    return add_commas(" / ".join(
+        filter(lambda a: a,dict_replace(dict_replace(scramble, NORM), NORM).split(" "))))
 
 def add_commas(scramble: str) -> str:
     """adds commas to the scramble (part of unkarnifier)
