@@ -2,7 +2,7 @@
 
 import re
 from get_scramble import legal_move, optimize, INV_NORM, NORM
-from get_scramble import replace_with_dict, changes_alignment
+from get_scramble import dict_replace
 from helpers import check
 
 GOOD = [
@@ -101,7 +101,7 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
 
     if k_i:
         # turn it into numbers
-        alg = replace_with_dict(alg, NORM)
+        alg = dict_replace(alg, NORM)
         # no slash, no paren, no comma
     else:
         # potential slash, potential paren, potential comma
@@ -152,7 +152,7 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
     if k:
         alg = re.sub(r"\/", " ", alg) # slash to space
         alg = re.sub(r",", "", alg) # X comma
-        alg = replace_with_dict(alg, INV_NORM)
+        alg = dict_replace(alg, INV_NORM)
     comment = "" if last_move in [*GOOD, "-45", "-54", "63", "6-3"] else " (bad finish)"
     comment += "" if alg[0:1] == alg [-1:] else " (alignment changes)"
     return alg + comment

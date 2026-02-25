@@ -18,15 +18,17 @@ dictionary = {"i": "R", "k": "R'",
               "0": "x", ".": "x'",
               ";": "y", "a": "y'",
               "p": "z", "q": "z'",
-              "\n": "\n"}
+              "\n": "\n", " ": "\n"}
 
 
 while True:
     moves = []
-    X = ""
     u = []
-    for line in iter(input, X):
-        u.append(line)
+    try:
+        for line in iter(input, ""):
+            u.append(line)
+    except KeyboardInterrupt:
+        exit()
     CODE = "\n".join(u).strip().lower()
     if CODE.strip().lower() == "quit":
         exit()
@@ -36,7 +38,7 @@ while True:
         if GO:
             GO = False
             continue
-        elif i != (len(CODE) - 1):
+        if i != (len(CODE) - 1):
             if CODE[i + 1] == CODE[i]:
                 GO = True
                 moves.append(move[0] + "2")

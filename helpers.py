@@ -379,3 +379,19 @@ def ydnf(a) -> bool:
         bool: whether it's a non-dnf
     """
     return "DNF" in a if isinstance(a, str) else False
+
+def inv_scram(s: str) -> str:
+    """inverses a 3x3 scramble
+
+    Args:
+        s (str): normal scram
+
+    Returns:
+        str: inverse scram
+    """
+    inv_move = lambda m: m + "'" if len(m) == 1 else (m if m[-1] == "2" else m[0])
+    scram = s.split(" ")
+    inv = []
+    for i in range(len(scram) - 1, 0, -1):
+        inv.append(inv_move(scram[i]))
+    return " ".join(inv)

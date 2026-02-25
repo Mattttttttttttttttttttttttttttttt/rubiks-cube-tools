@@ -1,4 +1,4 @@
-"""generates random obl scrambles"""
+"""squan coding library. OBL heavy"""
 
 import random
 import re
@@ -241,7 +241,7 @@ OBL_LEN = {
     "bad N/N": 4,
     "tie/N": 5,
     "good tie/tie": 3,
-    "bad tie/tie":  4
+    "bad tie/tie": 4
 }
 
 def obl_name(obl: list[str]) -> str:
@@ -469,46 +469,46 @@ INV_NORM = {
     " D D ": " DD ",
     " D' D' ": " DD' ",
 
-    " 60 ": " U2 ",
-    " 63 ": " U2D ",
-    " 6-3 ": " U2D' ",
-    " 66 ": " U2D2 ",
-    " 06 ": " D2 ",
-    " 36 ": " UD2 ",
-    " -36 ": " U'D2 ",
+    " 6,0 ": " U2 ",
+    " 6,3 ": " U2D ",
+    " 6,-3 ": " U2D' ",
+    " 6,6 ": " U2D2 ",
+    " 0,6 ": " D2 ",
+    " 3,6 ": " UD2 ",
+    " -3,6 ": " U'D2 ",
 
-    " 30 ": " U ",
-    " -30 ": " U' ",
-    " 03 ": " D ",
-    " 0-3 ": " D' ",
-    " 3-3 ": " E ",
-    " -33 ": " E' ",
-    " 33 ": " e ",
-    " -3-3 ": " e' ",
-    " 2-1 ": " u ",
-    " -12 ": " d ",
-    " -4-1 ": " F' ",
-    " -1-4 ": " f' ",
-    " 2-4 ": " T ",
-    " -42 ": " t' ",
-    " 22 ":" m ",
-    " -1-1 ": " M' ",
-    " 5-1 ":" u2 ",
-    " -15 ": " d2 ",
-    " -21 ":" u' ",
-    " 1-2 ":" d' ",
-    " 41 ":" F ",
-    " 14 ":" f ",
-    " -24 ": " T' ",
-    " 4-2 ": " t ",
-    " -2-2 ":" m' ",
-    " 11 ": " M ",
-    " -51 ": " u2' ",
-    " 1-5 ": " d2' ",
-    " -5-2 ": " K' ",
-    " 52 ": " K ",
-    " 25 ": " k ",
-    " -2-5 ": " k' "
+    " 3,0 ": " U ",
+    " -3,0 ": " U' ",
+    " 0,3 ": " D ",
+    " 0,-3 ": " D' ",
+    " 3,-3 ": " E ",
+    " -3,3 ": " E' ",
+    " 3,3 ": " e ",
+    " -3,-3 ": " e' ",
+    " 2,-1 ": " u ",
+    " -1,2 ": " d ",
+    " -4,-1 ": " F' ",
+    " -1,-4 ": " f' ",
+    " 2,-4 ": " T ",
+    " -4,2 ": " t' ",
+    " 2,2 ":" m ",
+    " -1,-1 ": " M' ",
+    " 5,-1 ":" u2 ",
+    " -1,5 ": " d2 ",
+    " -2,1 ":" u' ",
+    " 1,-2 ":" d' ",
+    " 4,1 ":" F ",
+    " 1,4 ":" f ",
+    " -2,4 ": " T' ",
+    " 4,-2 ": " t ",
+    " -2,-2 ":" m' ",
+    " 1,1 ": " M ",
+    " -5,1 ": " u2' ",
+    " 1,-5 ": " d2' ",
+    " -5,-2 ": " K' ",
+    " 5,2 ": " K ",
+    " 2,5 ": " k ",
+    " -2,-5 ": " k' "
 }
 NORM = {v: k for k, v in INV_NORM.items()}
 # if the following moves accur, replace them with optimized ones
@@ -525,7 +525,7 @@ OPTIM = {
 
 OPTIM_KEYS = list(OPTIM.keys()) # array of keys
 
-def replace_with_dict(s: str, d: dict) -> str:
+def dict_replace(s: str, d: dict) -> str:
     """Replace occurrences of keys of a dictionary in a string by the values.
 
     Args:
@@ -765,8 +765,47 @@ def karnify(scramble: str) -> str:
         moves[i] = KARN[m] if m in KARN else m.replace(",", "")
     # second level karnify
     scramble = " ".join(moves)
-    scramble = replace_with_dict(scramble, HIGHKARN)
+    scramble = dict_replace(scramble, HIGHKARN)
     return scramble
+
+def unkarnify(scramble: str) -> str:
+    """unkarnifies the scramble
+
+    Args:
+        scramble (str): the scramble, e.g. "A U' d3 e m' e U' d e e T' A"
+
+    Returns:
+        str: before karnifying, e.g. "A/-3,0/-1,2/1,-2/-1,2/3,3/-2,-2/3,3/-3,0/-1,2/3,3/3,3/-2,4/A"
+    """
+    # incomplete, has to decompose moves like 6-3, which I'm too lazy to do rn.
+    return add_commas(" / ".join(dict_replace(dict_replace(scramble, NORM), NORM).split(" ")))
+
+def add_commas(scramble: str) -> str:
+    """adds commas to the scramble (part of unkarnifier)
+
+    Args:
+        scramble (str): e.g. "10/-30/-12/1-2/-12/33/-2-2/33/-30/-12/33/33/-24/-10"
+
+    Returns:
+        str: "1,0/-3,0/-1,2/1,-2/-1,2/3,3/-2,-2/3,3/-3,0/-1,2/3,3/3,3/-2,4/-1,0"
+    """
+    # slice separator
+    sep = " / " if " / " in scramble else "/" if "/" in scramble else " "
+
+    ret = scramble.split(sep)
+    for i, m in enumerate(ret):
+        if "," in m:
+            continue
+        match len(m):
+            case 2:
+                ret[i] = m[0] + "," + m[1]
+            case 3:
+                ret[i] = m[0:2] + "," + m[2] if m[0] == "-" else m[0] + "," + m[1:]
+            case 4:
+                ret[i] = m[0:2] + "," + m[2:]
+            case _:
+                raise ValueError("this move is not valid: " + m)
+    return sep.join(ret)
 
 def legal_move(m: int) -> int:
     """makes the move legal
@@ -809,7 +848,7 @@ def optimize(scramble: str) -> str:
     Returns:
         str: a similarly-formatted optimizes scramble
     """
-    while replace_with_dict(scramble, OPTIM) != scramble:
+    while dict_replace(scramble, OPTIM) != scramble:
         # optimize needed
         moves = scramble.split("/")
         # moves now in ["A","3,-3", "3,0", "a"]

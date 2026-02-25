@@ -1,5 +1,6 @@
 """this module provides valid oblp memo for visualization.
-toggle the variables INVERSE and ONEFACE to switch modes."""
+toggle the variables INVERSE and ONEFACE to switch modes.
+(edit: consider using the 'show Matt tracing memo' option in my OBL trainer instead)"""
 
 import random
 import sys

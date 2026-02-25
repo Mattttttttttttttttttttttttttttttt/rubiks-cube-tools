@@ -6,18 +6,18 @@
 import sys
 from helpers import num_part, no_brackets, minutes, ndnf, check, keep, no_multiphase
 
-u = []
+U = []
 print("your average of ... (paste it in here (only times, no text, separated by \", \")): ")
 try:
     for line in iter(input, "done"):
-        u.append(line)
+        U.append(line)
 except KeyboardInterrupt:
-    exit()
-u = "".join(u).strip() # e.g. "100: 6.969\n\nTime List:\n..."
-time_list: list[str] = no_multiphase(no_brackets(u)).split(", ")
+    sys.exit()
+U = "".join(U).strip() # e.g. "100: 6.969\n\nTime List:\n..."
+time_list: list[str] = no_multiphase(no_brackets(U)).split(", ")
 LENGTH: int = len(time_list) # e.g. 100
-DECIMALS: int = max([len(num_part(i).split(".")[1]) if "." in i
-                     else 0 for i in time_list])
+DECIMALS: int = max(len(num_part(i).split(".")[1]) if "." in i
+                     else 0 for i in time_list)
 r: list[float] = []  # refined list (DNF as 10000, in seconds, no "+") in float/int
 for j in time_list:
     if ndnf(j):
