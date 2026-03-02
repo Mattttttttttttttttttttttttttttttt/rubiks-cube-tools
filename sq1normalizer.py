@@ -152,7 +152,7 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
         alg = re.sub(" ", "/", alg) # space to slash
         alg = add_commas(alg)
         alg = karnify(alg)
-    comment = "" if last_move in [*GOOD, "-45", "-54", "63", "6-3"] else " (bad finish)"
+    comment = "" if last_move in [*GOOD, "-45", "-54", "63"] else " (bad finish)"
     comment += "" if alg[0:1] == alg [-1:] else " (alignment changes)"
     return alg + comment
 

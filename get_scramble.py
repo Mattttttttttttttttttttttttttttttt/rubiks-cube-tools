@@ -464,13 +464,16 @@ NORM = {v: k for k, v in INV_NORM.items()}
 # if the following moves accur, replace them with optimized ones
 # UPDATE THIS
 OPTIM = {
-    # longest first
     "/3,3/3,3/": "-3,-3/-3,-3",
     "/-3,-3/-3,-3/": "3,3/3,3",
     "/2,2/-2,-2/": "2,2/-2,-2",
     "/-2,-2/2,2/": "-2,-2/2,2",
     "/1,1/-1,-1/": "1,1/-1,-1",
-    "/-1,-1/1,1/": "-1,-1/1,1"
+    "/-1,-1/1,1/": "-1,-1/1,1",
+    "/2,-4/-2,4/2,-4/": "2,-4/-2,4/2,-4",
+    "/-2,4/2,-4/-2,4/": "-2,4/2,-4/-2,4",
+    "/5,-1/-5,1/5,-1/": "5,-1/-5,1/5,-1",
+    "/-5,1/5,-1/-5,1/": "-5,1/5,-1/-5,1"
 }
 
 OPTIM_KEYS = list(OPTIM.keys()) # array of keys
@@ -709,13 +712,10 @@ def karnify(scramble: str) -> str:
     Returns:
         str: after karnifying, e.g. "A U' d3 e m' e U' d e e T' A"
     """
-    moves = scramble.split("/")
-    # first level karnify skip the A and a
-    for [i, m] in enumerate(moves):
-        moves[i] = KARN[m] if m in KARN else m.replace(",", "")
-    # second level karnify
-    scramble = " ".join(moves)
-    scramble = dict_replace(scramble, INV_NORM)
+    # slice separator
+    sep = " / " if " / " in scramble else "/" if "/" in scramble else " "
+    scramble = dict_replace(" " + scramble.replace(sep, " / ") + " ", INV_NORM).replace(",", "").strip()
+    scramble = re.sub(r" +", " ", scramble)
     return scramble
 
 def unkarnify(scramble: str) -> str:
