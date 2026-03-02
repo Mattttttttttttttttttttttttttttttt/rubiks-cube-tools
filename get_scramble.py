@@ -378,56 +378,6 @@ A_MOVES = [[3,0], [-3,0], [0,3], [0,-3], [3,3],
 a_MOVES = [[3,0], [-3,0], [0,3], [0,-3], [3,3],
     [-2,1], [1,-2], [4,1], [1,4], [-2,4], [-2,-2], [1,1], [-5,1]]
 KARNL = len(a_MOVES)
-HIGHKARN = {
-    # add spaces for de-ambiguity
-    "U U' U U' ": "U4 ",
-    "U' U U' U ": "U4' ",
-    "D D' D D' ": "D4 ",
-    "D' D D' D ": "D4' ",
-    "u u' u u' ": "u4 ",
-    "u' u u' u ": "u4' ",
-    "d d' d d' ": "d4 ",
-    "d' d d' d ": "d4' ",
-
-    "U U' U ": "U3 ",
-    "U' U U' ": "U3' ",
-    "D D' D ": "D3 ",
-    "D' D D' ": "D3' ",
-    "u u' u ": "u3 ",
-    "u' u u' ": "u3' ",
-    "d d' d ": "d3 ",
-    "d' d d' ": "d3' ",
-    "F F' F ": "F3 ",
-    "F' F F' ": "F3' ",
-    "f f' f ": "f3 ",
-    "f' f f' ": "f3' ",
-
-    "U U' ": "W ",
-    "U' U ": "W' ",
-    "D D' ": "B ",
-    "D' D ": "B' ",
-    "u u' ": "w ",
-    "u' u ": "w' ",
-    "d d' ": "b ",
-    "d' d ": "b' ",
-    "F F' ": "F2 ",
-    "F' F ": "F2' ",
-    "f f' ": "f2 ",
-    "f' f ": "f2' ",
-
-    "U U ": "UU ",
-    "U' U' ": "UU' ",
-    "D D ": "DD ",
-    "D' D' ": "DD' ",
-
-    "60 ": "U2 ",
-    "63 ": "U2D ",
-    "6-3 ": "U2D' ",
-    "66 ": "U2D2 ",
-    "06 ": "D2 ",
-    "36 ": "UD2",
-    "-36 ": "U'D2"
-}
 INV_NORM = {
     " U U' U U' ": " U4 ",
     " U' U U' U ": " U4' ",
@@ -765,7 +715,7 @@ def karnify(scramble: str) -> str:
         moves[i] = KARN[m] if m in KARN else m.replace(",", "")
     # second level karnify
     scramble = " ".join(moves)
-    scramble = dict_replace(scramble, HIGHKARN)
+    scramble = dict_replace(scramble, INV_NORM)
     return scramble
 
 def unkarnify(scramble: str) -> str:
@@ -795,7 +745,7 @@ def add_commas(scramble: str) -> str:
 
     ret = scramble.split(sep)
     for i, m in enumerate(ret):
-        if "," in m:
+        if "," in m or m.lower() == "a":
             continue
         match len(m):
             case 2:

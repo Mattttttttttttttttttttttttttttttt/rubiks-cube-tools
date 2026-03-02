@@ -1,8 +1,7 @@
 """normalizes/y2s squan algs"""
 
 import re
-from get_scramble import legal_move, optimize, INV_NORM, NORM
-from get_scramble import dict_replace
+from get_scramble import legal_move, optimize, karnify, NORM, dict_replace, add_commas
 from helpers import check
 
 GOOD = [
@@ -150,9 +149,9 @@ def normalize(alg: str, l_f_lst: list[int], k = None, leave: bool = True) -> str
 
     # now we can do formatting
     if k:
-        alg = re.sub(r"\/", " ", alg) # slash to space
-        alg = re.sub(r",", "", alg) # X comma
-        alg = dict_replace(alg, INV_NORM)
+        alg = re.sub(" ", "/", alg) # space to slash
+        alg = add_commas(alg)
+        alg = karnify(alg)
     comment = "" if last_move in [*GOOD, "-45", "-54", "63", "6-3"] else " (bad finish)"
     comment += "" if alg[0:1] == alg [-1:] else " (alignment changes)"
     return alg + comment
