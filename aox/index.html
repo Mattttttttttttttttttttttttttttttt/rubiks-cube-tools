@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AoX List — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .avg-item { display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid var(--border); font-family:var(--font-mono);font-size:0.8rem; }
+    .avg-item:last-child{border-bottom:none}
+    .avg-idx{color:var(--text-muted);font-size:0.7rem;width:54px;flex-shrink:0}
+    .avg-val{color:var(--text);flex:1}
+    .avg-val.dnf{color:#c41e3a88}
+    .avg-val.best{color:var(--accent);font-weight:600}
+    .avg-val.worst{color:#888}
+    .summary{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+    .summary-row{display:flex;justify-content:space-between;font-size:0.8rem;padding:3px 0}
+    .summary-key{color:var(--text-muted)}
+    .summary-val{font-family:var(--font-mono);color:var(--accent)}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="split">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>AoX List</div>
+        <div class="panel-sub">Split a session into all rolling sub-averages</div>
+      </div>
+      <div class="input-group">
+        <label class="label">cstimer average</label>
+        <textarea id="paste" rows="8" placeholder="Paste full cstimer average here…"></textarea>
+      </div>
+      <div class="input-group">
+        <label class="label">Sub-average length</label>
+        <div class="row">
+          <input type="number" id="avgLen" min="3" placeholder="e.g. 5" style="width:90px">
+          <button class="btn btn-primary" id="goBtn">Compute</button>
+        </div>
+        <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Rolling averages</div>
+        <div id="countLabel" class="panel-sub"></div>
+      </div>
+      <div id="summary" style="display:none"></div>
+      <div class="scrollable" id="listOut">
+        <div class="output-empty">Results will appear here.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+import { noBrackets, noMultiphase, minutes, seconds, ndnf, avg, avgCompare, frwrd, numPart } from '../shared/helpers.js';
+buildNav('aox');
+
+document.getElementById('goBtn').addEventListener('click', compute);
+document.getElementById('avgLen').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
+
+function compute() {
+  const raw = document.getElementById('paste').value;
+  const errMsg = document.getElementById('errMsg');
+  errMsg.textContent = '';
+  if (!raw.includes('avg of') || !raw.includes('Time List:')) { errMsg.textContent = 'Paste a valid cstimer average.'; return; }
+  const n = parseInt(document.getElementById('avgLen').value);
+  if (isNaN(n) || n < 3) { errMsg.textContent = 'Minimum length is 3.'; return; }
+
+  const after = raw.trim().split('avg of ')[1];
+  const ao = after.split('Time List:')[1];
+  const timeList = noMultiphase(noBrackets(ao)).split(', ').map(s=>s.trim()).filter(Boolean);
+  const LENGTH = timeList.length;
+  if (n >= LENGTH) { errMsg.textContent = `Length must be less than session length (${LENGTH}).`; return; }
+  const decimals = Math.max(...timeList.map(s => { const np=numPart(s); return np.includes('.')?np.split('.')[1].length:0; }));
+  const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
+
+  const results = [];
+  for (let i = 0; i <= LENGTH - n; i++) {
+    const slice = frwrd(r, i, n);
+    let val = avg(slice, n, decimals);
+    results.push({ start: i+1, end: i+n, val: val === Number.MAX_SAFE_INTEGER ? 'DNF' : val });
+  }
+
+  // Find best/worst non-DNF
+  const nonDnf = results.filter(x => x.val !== 'DNF' && x.val !== Number.MAX_SAFE_INTEGER);
+  const bestVal = nonDnf.length ? Math.min(...nonDnf.map(x => avgCompare(x.val))) : null;
+  const worstVal= nonDnf.length ? Math.max(...nonDnf.map(x => avgCompare(x.val))) : null;
+
+  // Summary
+  const summaryEl = document.getElementById('summary');
+  if (bestVal !== null) {
+    summaryEl.style.display = '';
+    summaryEl.className = 'summary';
+    const bestItem = nonDnf.find(x => x.val === bestVal);
+    const worstItem= nonDnf.find(x => x.val === worstVal);
+    summaryEl.innerHTML = `
+      <div class="summary-row"><span class="summary-key">Best ao${n}</span><span class="summary-val">${seconds(String(bestVal))}</span></div>
+      <div class="summary-row"><span class="summary-key">Worst ao${n}</span><span class="summary-val" style="color:var(--text-dim)">${seconds(String(worstVal))}</span></div>
+      <div class="summary-row"><span class="summary-key">Total</span><span class="summary-val" style="color:var(--text-dim)">${results.length} rolling averages</span></div>`;
+  } else { summaryEl.style.display = 'none'; }
+
+  document.getElementById('countLabel').textContent = `${results.length} ao${n}s from ${LENGTH} solves`;
+  const listOut = document.getElementById('listOut');
+  listOut.innerHTML = results.map(x => {
+    const isBest  = x.val !== 'DNF' && x.val === bestVal;
+    const isWorst = x.val !== 'DNF' && x.val === worstVal && x.val !== bestVal;
+    const isDnf   = x.val === 'DNF';
+    const cls = isBest ? 'best' : isWorst ? 'worst' : isDnf ? 'dnf' : '';
+    const display = isDnf ? 'DNF' : seconds(String(x.val));
+    return `<div class="avg-item"><span class="avg-idx">${x.start}–${x.end}</span><span class="avg-val ${cls}">${display}</span></div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Alg Filter — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .split-3{display:grid;grid-template-columns:1fr 260px 1fr;height:calc(100vh - var(--nav-h))}
+    @media(max-width:900px){.split-3{grid-template-columns:1fr;height:auto}}
+    .legend{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:14px;font-size:0.72rem;line-height:1.8;color:var(--text-dim)}
+    .legend code{font-family:var(--font-mono);color:var(--accent);font-size:0.75rem}
+    .round-tag{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:var(--radius);margin-left:6px}
+    .tag-removed{background:#c41e3a22;color:#c41e3a}
+    .tag-kept{background:#009b4822;color:#009b48}
+    .alg-out{font-family:var(--font-mono);font-size:0.78rem;color:var(--text);line-height:1.9;white-space:pre-wrap;word-break:break-all}
+    .alg-count{font-family:var(--font-mono);font-size:0.85rem;color:var(--accent);margin-bottom:10px}
+    #addRoundBtn{margin-top:10px;width:100%}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="split-3">
+    <!-- Col 1: Alg input -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Alg Input</div>
+        <div class="panel-sub">Paste raw Cube Explorer output</div>
+      </div>
+      <div class="input-group" style="flex:1;display:flex;flex-direction:column">
+        <label class="label">Raw algs</label>
+        <textarea id="algInput" style="flex:1;resize:none" placeholder="Paste Cube Explorer algs here…"></textarea>
+      </div>
+      <button class="btn btn-primary mt-16" id="loadBtn">Load algs</button>
+      <div id="loadCount" class="muted small mt-8"></div>
+    </div>
+
+    <!-- Col 2: Filter rounds -->
+    <div class="panel" style="border-left:1px solid var(--border)">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Filter Rounds</div>
+      </div>
+      <div id="rounds"></div>
+      <button class="btn btn-ghost" id="addRoundBtn">+ Add round</button>
+      <div class="legend">
+        <div><code>*</code> — any modifier (none, ', 2)</div>
+        <div><code>R/U</code> — R U or U R (either order)</div>
+        <div><code>R&U</code> — both R and U present</div>
+        <div><code>.R</code> — starts with R</div>
+        <div><code>R.</code> — ends with R</div>
+        <div>One filter per line. Matching algs are <em>removed</em>.</div>
+      </div>
+    </div>
+
+    <!-- Col 3: Output -->
+    <div class="panel" style="border-left:1px solid var(--border)">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
+        <div class="panel-sub" id="outCountLabel"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm mb-8" id="copyOutBtn" style="display:none">Copy all</button>
+      <div class="scrollable">
+        <div class="output-empty" id="outEmpty">Load algs to begin filtering.</div>
+        <div class="alg-out" id="algOut"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+buildNav('filter');
+
+let masterAlgs = [];   // original loaded algs
+let currentAlgs = [];  // after all rounds applied
+const roundsEl = document.getElementById('rounds');
+const rounds = [];     // { filters: string[], removed: number }
+
+document.getElementById('loadBtn').addEventListener('click', loadAlgs);
+document.getElementById('addRoundBtn').addEventListener('click', () => addRound());
+document.getElementById('copyOutBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(currentAlgs.join('\n'));
+  const btn = document.getElementById('copyOutBtn');
+  const old = btn.textContent; btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = old, 1500);
+});
+
+function loadAlgs() {
+  const raw = document.getElementById('algInput').value;
+  masterAlgs = raw.split('\n').map(l=>l.trim()).filter(l => l && l.slice(0,15) !== 'Searching depth');
+  currentAlgs = [...masterAlgs];
+  document.getElementById('loadCount').textContent = `${masterAlgs.length} algs loaded`;
+  rounds.length = 0;
+  roundsEl.innerHTML = '';
+  renderOutput();
+  if (rounds.length === 0) addRound();
+}
+
+function addRound() {
+  const idx = rounds.length;
+  rounds.push({ filters: [], removed: 0 });
+  const div = document.createElement('div');
+  div.className = 'filter-round';
+  div.innerHTML = `
+    <div class="filter-round-header">
+      <span class="label">Round ${idx+1}</span>
+      <span class="filter-count" id="rc${idx}"></span>
+    </div>
+    <textarea rows="4" style="width:100%;resize:vertical;font-size:0.75rem" placeholder="R&#10;U*&#10;R/U" id="ft${idx}"></textarea>
+    <div class="row" style="margin-top:6px;gap:6px">
+      <button class="btn btn-primary btn-sm" data-idx="${idx}">Apply</button>
+      <button class="btn btn-ghost btn-sm" data-clear="${idx}">Clear</button>
+    </div>`;
+  roundsEl.appendChild(div);
+  div.querySelector('[data-idx]').addEventListener('click', () => applyRound(idx));
+  div.querySelector('[data-clear]').addEventListener('click', () => {
+    document.getElementById(`ft${idx}`).value = '';
+    rounds[idx].filters = []; rounds[idx].removed = 0;
+    reapplyAll();
+  });
+}
+
+function deasteriskizeStr(s) {
+  const positions = [...s].map((c,i) => c==='*'?i:-1).filter(i=>i>=0);
+  const replacements = ['', "'", '2'];
+  const combos = cartesian(positions.map(() => replacements));
+  return combos.map(combo => {
+    const arr = [...s]; let ci=0;
+    for (const pos of positions) { arr[pos] = combo[ci++]; }
+    return arr.join('');
+  });
+}
+
+function cartesian(arrays) {
+  return arrays.reduce((a,b) => a.flatMap(x => b.map(y => [...x,y])), [[]]);
+}
+
+function deasteriskize(lst) {
+  let result = [...lst];
+  while (result.some(s => s.includes('*'))) {
+    const next = [];
+    for (const item of result) {
+      if (item.includes('*')) next.push(...deasteriskizeStr(item));
+      else next.push(item);
+    }
+    result = next;
+  }
+  return result;
+}
+
+function deslash(lst) {
+  let result = [...lst];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const item of result) {
+      if (item.includes('/')) {
+        result = result.filter(x=>x!==item);
+        const [a,b] = item.split('/');
+        result.push(a+' '+b, b+' '+a);
+        changed = true; break;
+      }
+    }
+  }
+  return result;
+}
+
+function contain(lst, parent) { return lst.every(c => parent.includes(c)); }
+
+function applyFilters(algs, rawFilters) {
+  let filters = rawFilters.split('\n').map(s=>s.trim()).filter(Boolean);
+  filters = deslash(filters);
+  filters = deasteriskize(filters);
+  return algs.filter(alg => {
+    for (const f of filters) {
+      if (f.includes('&')) { if (contain(f.split('&'), alg)) return false; }
+      else if (f[0] === '.') { if (alg.slice(0, f.length-1) === f.slice(1)) return false; }
+      else if (f.slice(-1) === '.') {
+        const stem = alg.split('(')[0].trim();
+        if (stem.slice(-( f.length-1)) === f.slice(0,-1)) return false;
+      }
+      else if (alg.includes(f)) return false;
+    }
+    return true;
+  });
+}
+
+function applyRound(idx) {
+  const rawFilters = document.getElementById(`ft${idx}`)?.value ?? '';
+  rounds[idx].filters = rawFilters;
+  reapplyAll();
+}
+
+function reapplyAll() {
+  currentAlgs = [...masterAlgs];
+  for (let i = 0; i < rounds.length; i++) {
+    const before = currentAlgs.length;
+    if (rounds[i].filters.length) {
+      currentAlgs = applyFilters(currentAlgs, rounds[i].filters);
+    }
+    rounds[i].removed = before - currentAlgs.length;
+    const rc = document.getElementById(`rc${i}`);
+    if (rc) {
+      rc.textContent = rounds[i].removed ? `−${rounds[i].removed}` : '';
+      rc.className = `filter-count ${rounds[i].removed ? 'removed' : ''}`;
+    }
+  }
+  renderOutput();
+}
+
+function renderOutput() {
+  document.getElementById('outCountLabel').textContent = masterAlgs.length ? `${currentAlgs.length} / ${masterAlgs.length} algs` : '';
+  document.getElementById('outEmpty').style.display = masterAlgs.length ? 'none' : '';
+  document.getElementById('algOut').textContent = currentAlgs.join('\n');
+  document.getElementById('copyOutBtn').style.display = masterAlgs.length ? '' : 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cubetools</title>
+  <link rel="stylesheet" href="./shared/style.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <div class="page">
+    <div class="hero">
+      <div class="hero-cube" id="heroCube"></div>
+      <div class="hero-eyebrow">Speedcubing utilities</div>
+      <h1 class="hero-title">cube<em>tools</em></h1>
+      <p class="hero-desc">A collection of tools for tracking, analyzing, and improving your solves. Pick a tool below to get started.</p>
+    </div>
+
+    <div class="tool-grid" id="toolGrid"></div>
+  </div>
+
+  <script type="module">
+    import { TOOLS, buildNav } from './shared/nav.js';
+
+    buildNav(null);
+
+    // Hero cube decoration
+    const colors = ['#ffd500','#ff5800','#009b48','#0046ad','#c41e3a','#ffffff',
+                    '#ffd500','#ff5800','#009b48'];
+    const cube = document.getElementById('heroCube');
+    colors.forEach(c => {
+      const cell = document.createElement('div');
+      cell.className = 'hero-cube-cell';
+      cell.style.background = c;
+      cube.appendChild(cell);
+    });
+
+    const descs = {
+      average: 'Generate a correctly formatted WCA-style average string from your solves. Supports +2, DNF, and live editing.',
+      stats:   'Paste a cstimer average and get deep stats: best single, ao5/ao12, standard deviation, DNFs, +2s, and time distributions.',
+      aox:     'Split a long cstimer session into all rolling sub-averages of a chosen length. Find your best rolling ao5, ao12, etc.',
+      subx:    'Count how many solves or rolling averages in a session are sub a given cutoff time.',
+      mean:    'Calculate a simple mean of 3 from a list of times, formatted as a clean output string.',
+      add:     'Add together any number of times in M:SS.xx format — useful for multi, relay, or FMC totals.',
+      filter:  'Filter Cube Explorer output by move sets using a powerful notation: wildcards, slash, AND, prefix/suffix.',
+      mega:    'Convert Megaminx scrambles from carrot notation (^^ / ++) to official WCA notation instantly.',
+      squan:     'Normalize Square-1 algorithms: apply y2s, toggle karn notation, and check for bad finishes.',
+      oblp:    'Flashcard trainer for Square-1 OBLP (one-big-layer-per) case recognition. Toggle between one-face and two-face modes.',
+      notation: 'Convert natural keyboard input (home-row coding) into standard 3×3 move notation in real time.',
+    };
+
+    const tags = {
+      average: 'averages', stats: 'analysis', aox: 'averages',
+      subx: 'analysis', mean: 'averages', add: 'utilities',
+      filter: '3×3 / CFOP', mega: 'megaminx', squan: 'square-1',
+      oblp: 'square-1 trainer', notation: 'utilities',
+    };
+
+    const grid = document.getElementById('toolGrid');
+    TOOLS.forEach(t => {
+      const a = document.createElement('a');
+      a.className = 'tool-card';
+      a.href = `${t.path}/index.html`;
+      a.style.setProperty('--tool-color', t.color);
+      a.innerHTML = `
+        <div class="card-name">${t.label}</div>
+        <div class="card-desc">${descs[t.path] ?? ''}</div>
+        <div class="card-tag">${tags[t.path] ?? ''}</div>`;
+      grid.appendChild(a);
+    });
+  </script>
+</body>
+</html>

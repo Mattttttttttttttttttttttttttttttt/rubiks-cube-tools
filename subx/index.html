@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sub-X Count — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .big-result{font-family:var(--font-mono);font-size:3.5rem;font-weight:600;color:var(--accent);letter-spacing:-0.04em;line-height:1;margin:28px 0 8px}
+    .big-sub{font-size:0.8rem;color:var(--text-dim)}
+    .bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);height:8px;overflow:hidden;margin-top:20px}
+    .bar-fill{height:100%;background:var(--accent);border-radius:var(--radius);transition:width 0.4s}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="split">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Sub-X Count</div>
+        <div class="panel-sub">Count how many times are under a cutoff</div>
+      </div>
+      <div class="input-group">
+        <label class="label">Time list (comma-separated, cstimer format ok)</label>
+        <textarea id="paste" rows="10" placeholder="Paste your times here — can be raw comma-separated, or the Time List section from cstimer. Brackets, +2s, and DNFs are handled."></textarea>
+      </div>
+      <div class="input-group">
+        <label class="label">Cutoff (seconds)</label>
+        <div class="row">
+          <input type="number" id="cutoff" step="0.001" placeholder="e.g. 9.5" style="width:110px">
+          <button class="btn btn-primary" id="goBtn">Count</button>
+        </div>
+        <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px"></div>
+      </div>
+    </div>
+    <div class="panel" style="justify-content:center">
+      <div id="result" style="display:none">
+        <div class="big-result" id="fraction"></div>
+        <div class="big-sub" id="pct"></div>
+        <div class="bar-wrap"><div class="bar-fill" id="barFill" style="width:0"></div></div>
+        <div class="big-sub" style="margin-top:10px" id="cutLabel"></div>
+      </div>
+      <div class="output-empty" id="emptyMsg">Paste times and set a cutoff to count.</div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+import { noBrackets, noMultiphase, minutes, ndnf, numPart } from '../shared/helpers.js';
+buildNav('subx');
+
+document.getElementById('goBtn').addEventListener('click', compute);
+document.getElementById('cutoff').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
+
+function compute() {
+  const errMsg = document.getElementById('errMsg');
+  errMsg.textContent = '';
+  let raw = document.getElementById('paste').value.trim();
+  const cut = parseFloat(document.getElementById('cutoff').value);
+  if (!raw) { errMsg.textContent = 'Paste some times first.'; return; }
+  if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff in seconds.'; return; }
+
+  // Strip cstimer header if present
+  if (raw.includes('Time List:')) raw = raw.split('Time List:')[1];
+  const timeList = noMultiphase(noBrackets(raw)).split(',').map(s => s.trim()).filter(Boolean);
+  const r = timeList.map(s => ndnf(s) ? minutes(numPart(s)) : Number.MAX_SAFE_INTEGER);
+  const subCount = r.filter(v => v < cut).length;
+  const total = r.length;
+  const pct = total > 0 ? ((subCount/total)*100).toFixed(1) : 0;
+
+  document.getElementById('fraction').textContent = `${subCount}/${total}`;
+  document.getElementById('pct').textContent = `${pct}% sub-${cut}s`;
+  document.getElementById('cutLabel').textContent = `Cutoff: ${cut} seconds`;
+  document.getElementById('barFill').style.width = pct + '%';
+  document.getElementById('result').style.display = '';
+  document.getElementById('emptyMsg').style.display = 'none';
+}
+</script>
+</body>
+</html>

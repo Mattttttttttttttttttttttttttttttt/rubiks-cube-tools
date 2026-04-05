@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Notation — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .notation-wrap{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - var(--nav-h))}
+    @media(max-width:700px){.notation-wrap{grid-template-columns:1fr;height:auto}}
+    .kbd-panel{padding:22px;overflow-y:auto;display:flex;flex-direction:column}
+    .kbd-panel+.kbd-panel{border-left:1px solid var(--border)}
+    .input-textarea{width:100%;min-height:90px;resize:vertical;font-family:var(--font-mono);font-size:0.9rem;letter-spacing:0.06em}
+    .out-textarea{width:100%;flex:1;resize:none;font-family:var(--font-mono);font-size:0.9rem;letter-spacing:0.06em;min-height:90px}
+    .keyboard{display:flex;flex-direction:column;gap:4px;margin-top:18px}
+    .kbd-row{display:flex;gap:4px}
+    .key{
+      min-width:40px;height:42px;padding:0 6px;
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+      font-size:0.58rem;position:relative;
+    }
+    .key .k{color:var(--text-muted);font-family:var(--font-mono)}
+    .key .v{color:var(--accent);font-family:var(--font-mono);font-size:0.65rem;font-weight:600}
+    .key.pressed{background:var(--surface-2);border-color:var(--border-2)}
+    .key.wide{min-width:60px}
+    .key.spacer{background:transparent;border-color:transparent}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="notation-wrap">
+    <!-- Left: input + keyboard -->
+    <div class="kbd-panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Natural input</div>
+        <div class="panel-sub">Type using home-row coding — converts live</div>
+      </div>
+      <div class="input-group">
+        <label class="label">Your input</label>
+        <textarea class="input-textarea" id="codeIn" placeholder="e.g. iikk (RR')" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
+      </div>
+      <div class="divider"></div>
+      <div class="label">Key map</div>
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <!-- Right: output -->
+    <div class="kbd-panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Cube notation</div>
+        <div class="panel-sub">Read-only</div>
+      </div>
+      <button class="btn btn-ghost btn-sm mb-8" id="copyBtn">Copy</button>
+      <textarea class="out-textarea" id="notOut" readonly placeholder="Output appears here…" spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+buildNav('notation');
+
+const DICT = {
+  'i':'R',  'k':"R'", 'j':'U',  'f':"U'", 'd':'L',  'e':"L'",
+  'h':'F',  'g':"F'", 'w':'B',  'o':"B'", 's':'D',  'l':"D'",
+  'c':'M',  'x':"M'", 'y':'S',  't':"S'", '5':'E',  '6':"E'",
+  '-':'f',  '1':"f'", 'n':'u',  'b':"u'", 'v':'l',  'r':"l'",
+  'u':'r',  'm':"r'", 'z':'d',  '/':'d',  '0':'x',  '.':'x',
+  ';':'y',  'a':"y'", 'p':'z',  'q':"z'"
+};
+
+// Keyboard layout for visual
+const ROWS = [
+  ['q','w','e','r','t','','y','u','i','o','p'],
+  ['a','s','d','f','g','','h','j','k','l',';'],
+  ['z','x','c','v','b','','n','m','-','.','/',]
+];
+
+const keyboard = document.getElementById('keyboard');
+const pressedKeys = new Set();
+
+ROWS.forEach(row => {
+  const rowDiv = document.createElement('div');
+  rowDiv.className = 'kbd-row';
+  row.forEach(k => {
+    const key = document.createElement('div');
+    if (!k) { key.className = 'key spacer'; }
+    else {
+      key.className = 'key';
+      key.dataset.key = k;
+      const kSpan = document.createElement('div');
+      kSpan.className = 'k'; kSpan.textContent = k;
+      const vSpan = document.createElement('div');
+      vSpan.className = 'v'; vSpan.textContent = DICT[k] ?? '';
+      key.append(kSpan, vSpan);
+    }
+    rowDiv.appendChild(key);
+  });
+  keyboard.appendChild(rowDiv);
+});
+
+function convert(code) {
+  const moves = [];
+  const chars = [...code.toLowerCase()];
+  let i = 0;
+  while (i < chars.length) {
+    const ch = chars[i];
+    if (ch === '\n' || ch === ' ') { moves.push('\n'); i++; continue; }
+    const mapped = DICT[ch];
+    if (!mapped) { i++; continue; }
+    // Double = 2 move
+    if (i + 1 < chars.length && chars[i+1] === ch) {
+      moves.push(mapped[0] + '2');
+      i += 2;
+    } else {
+      moves.push(mapped);
+      i++;
+    }
+  }
+  // Build output: join with spaces, newlines become newlines
+  const lines = moves.join('\u0000').split('\n').map(seg =>
+    seg.split('\u0000').filter(Boolean).join(' ')
+  );
+  return lines.join('\n');
+}
+
+const codeIn = document.getElementById('codeIn');
+const notOut = document.getElementById('notOut');
+const copyBtn = document.getElementById('copyBtn');
+
+codeIn.addEventListener('input', () => {
+  notOut.value = convert(codeIn.value);
+});
+
+// Highlight keys on press
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  pressedKeys.add(k);
+  document.querySelectorAll('.key').forEach(el => {
+    if (el.dataset.key === k) el.classList.add('pressed');
+  });
+});
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  pressedKeys.delete(k);
+  document.querySelectorAll('.key').forEach(el => {
+    if (el.dataset.key === k) el.classList.remove('pressed');
+  });
+});
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(notOut.value);
+  const old = copyBtn.textContent; copyBtn.textContent = 'Copied!';
+  setTimeout(() => copyBtn.textContent = old, 1500);
+});
+</script>
+</body>
+</html>

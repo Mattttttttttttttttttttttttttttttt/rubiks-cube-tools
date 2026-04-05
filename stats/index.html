@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Avg Stats — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .zone { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    .zone-title { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:10px; }
+    #pasteArea { width:100%;min-height:90px;resize:vertical; }
+    .config-row { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end; }
+    .config-item { display:flex;flex-direction:column;gap:4px; }
+    .config-item label { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted); }
+    .config-item input { width:80px; }
+    .tooltip-wrap { position:relative;display:inline-block; }
+    .tooltip-q { font-size:0.6rem;color:var(--accent);cursor:help;margin-left:3px;vertical-align:middle; }
+    .tooltip-box {
+      display:none;position:absolute;bottom:calc(100% + 4px);left:0;
+      background:var(--surface-2);border:1px solid var(--border-2);
+      border-radius:var(--radius);padding:8px 10px;
+      font-size:0.72rem;color:var(--text-dim);line-height:1.5;
+      width:230px;z-index:50;white-space:normal;
+    }
+    .tooltip-wrap:hover .tooltip-box { display:block; }
+    .output-cols { display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 22px; }
+    .out-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px; }
+    .out-card h3 { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:10px; }
+    .stat-line { display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border); }
+    .stat-line:last-child { border-bottom:none; }
+    .stat-line-key { font-size:0.75rem;color:var(--text-dim); }
+    .stat-line-val { font-family:var(--font-mono);font-size:0.82rem;color:var(--text); }
+    .stat-line-val.hi { color:var(--accent); }
+    .placeholder-out { color:var(--text-muted);font-size:0.8rem;font-style:italic;padding:14px; }
+    @media(max-width:700px){.output-cols{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page" style="overflow-y:auto">
+
+  <div class="zone">
+    <div class="zone-title">1 — Paste cstimer average</div>
+    <textarea id="pasteArea" placeholder="Paste your full cstimer average here (including the 'avg of N:' header and Time List)…"></textarea>
+  </div>
+
+  <div class="zone" id="configZone" style="opacity:.35;pointer-events:none">
+    <div class="zone-title">2 — Configure</div>
+    <div class="config-row">
+      <div class="config-item">
+        <label>Track +2s
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Enable to see total +2s, un-+2'd average, and how many +2s fall in each cut range.</span>
+          </span>
+        </label>
+        <label class="toggle" style="margin-top:4px">
+          <input type="checkbox" id="p2Toggle">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="config-item">
+        <label>Cut 1 (s)
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">First time cut in seconds. Solves between Cut 1 and Cut 2 form the first range. For 1:03 enter 63.</span>
+          </span>
+        </label>
+        <input type="number" id="cut1" value="8" step="0.1">
+      </div>
+      <div class="config-item">
+        <label>Cut 2 (s)
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Second time cut in seconds. Solves between Cut 2 and Cut 3 form the second range.</span>
+          </span>
+        </label>
+        <input type="number" id="cut2" value="10" step="0.1">
+      </div>
+      <div class="config-item">
+        <label>Cut 3 (s)
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Third time cut. Solves above this are shown separately as "bad" solves.</span>
+          </span>
+        </label>
+        <input type="number" id="cut3" value="12" step="0.1">
+      </div>
+      <div class="config-item">
+        <label>Avg 1
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Length of first rolling average to find best of (e.g. 5 for best ao5).</span>
+          </span>
+        </label>
+        <input type="number" id="avg1" value="5" min="3">
+      </div>
+      <div class="config-item">
+        <label>Avg 2
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Length of second rolling average to find best of (e.g. 12 for best ao12).</span>
+          </span>
+        </label>
+        <input type="number" id="avg2" value="12" min="3">
+      </div>
+    </div>
+  </div>
+
+  <div class="output-cols" id="outputCols">
+    <div class="placeholder-out" id="placeholderOut" style="grid-column:1/-1">
+      Paste a valid cstimer average above to see stats.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+import {
+  noBrackets, noMultiphase, noParen, minutes, seconds,
+  ndnf, ydnf, prths, nprths, keep, findAll, deepjoin,
+  frwrd, repeat, avg, avgCompare, roundDecimal, stdev, numPart
+} from '../shared/helpers.js';
+
+buildNav('stats');
+
+const pasteArea  = document.getElementById('pasteArea');
+const configZone = document.getElementById('configZone');
+const outputCols = document.getElementById('outputCols');
+const placeholder= document.getElementById('placeholderOut');
+const p2Toggle   = document.getElementById('p2Toggle');
+const cut1In     = document.getElementById('cut1');
+const cut2In     = document.getElementById('cut2');
+const cut3In     = document.getElementById('cut3');
+const avg1In     = document.getElementById('avg1');
+const avg2In     = document.getElementById('avg2');
+
+let parsed = null;
+
+function tryParse(raw) {
+  if (!raw.includes('avg of') || !raw.includes('Time List:')) return null;
+  try {
+    const after = raw.trim().split('avg of ')[1];
+    const avgVal = after.split(':')[1]?.split('\n')[0]?.trim();
+    const ao = after.split('Time List:')[1];
+    const timeList = noMultiphase(noBrackets(ao)).split(', ').map(s => s.trim()).filter(Boolean);
+    if (!timeList.length) return null;
+    const decimals = Math.max(...timeList.map(s => {
+      const np = numPart(s);
+      return np.includes('.') ? np.split('.')[1].length : 0;
+    }));
+    const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
+    return { timeList, r, avgVal, decimals, length: timeList.length };
+  } catch { return null; }
+}
+
+pasteArea.addEventListener('input', () => {
+  parsed = tryParse(pasteArea.value);
+  if (parsed) {
+    configZone.style.opacity = '1';
+    configZone.style.pointerEvents = '';
+    // Set defaults based on data
+    if (parsed.length >= 12 && !avg2In.dataset.touched) avg2In.value = Math.min(12, parsed.length - 1);
+    if (parsed.length < 5)  avg1In.value = '';
+    if (parsed.length < 12) avg2In.value = '';
+    compute();
+  } else {
+    configZone.style.opacity = '.35';
+    configZone.style.pointerEvents = 'none';
+    outputCols.innerHTML = '';
+    outputCols.appendChild(placeholder);
+  }
+});
+
+[p2Toggle, cut1In, cut2In, cut3In, avg1In, avg2In].forEach(el => {
+  el.addEventListener('change', () => { if (parsed) compute(); });
+  if (el.type === 'number') el.addEventListener('input', () => { if (parsed) compute(); });
+});
+avg2In.addEventListener('input', () => avg2In.dataset.touched = '1');
+
+function sLine(key, val, hi = false) {
+  return `<div class="stat-line">
+    <span class="stat-line-key">${key}</span>
+    <span class="stat-line-val ${hi ? 'hi' : ''}">${val ?? '—'}</span>
+  </div>`;
+}
+
+function compute() {
+  const { timeList, r, avgVal, decimals, length } = parsed;
+  const PLUS_TWO = p2Toggle.checked;
+  const CUT1 = parseFloat(cut1In.value) || 0;
+  const CUT2 = parseFloat(cut2In.value) || 0;
+  const CUT3 = parseFloat(cut3In.value) || 0;
+  const AVG1 = parseInt(avg1In.value) || null;
+  const AVG2 = parseInt(avg2In.value) || null;
+
+  // Refined list in floats
+  const rFloat = r.map(s => s === 'DNF' ? 'DNF' : parseFloat(s));
+  const nonDnfFloat = rFloat.filter(v => v !== 'DNF');
+
+  // Parentheses info
+  const parenSolves = keep(keep(timeList, ndnf), prths).map(s => noParen(s));
+  const firstUnParen = keep(timeList, nprths).find(s => ndnf(s));
+  const firstUnParenVal = firstUnParen ? minutes(noParen(firstUnParen)) : Infinity;
+  const betterTrim = parenSolves.filter(s => parseFloat(numPart(s)) < firstUnParenVal).length;
+  const worseTrim  = parenSolves.length - betterTrim;
+
+  // Best/worst singles
+  const allNonDnf = keep(timeList, ndnf);
+  const bestSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) < minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
+  const worstSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) > minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
+  const counting = keep(keep(timeList, nprths), ndnf);
+  const bestCounting  = counting.reduce((b, s) => minutes(s) < minutes(b) ? s : b, counting[0] ?? '—');
+  const worstCounting = counting.reduce((b, s) => minutes(s) > minutes(b) ? s : b, counting[0] ?? '—');
+
+  let bestA1 = null, bestA2 = null;
+  if (AVG1 && AVG1 <= length && length - AVG1 > 0) {
+    const opts = [];
+    for (let i = 0; i <= length - AVG1; i++) opts.push(avg(frwrd(r, i, AVG1), AVG1, decimals));
+    bestA1 = opts.reduce((b, v) => avgCompare(v) < avgCompare(b) ? v : b, opts[0]);
+  }
+  if (AVG2 && AVG2 <= length && length - AVG2 > 0) {
+    const opts = [];
+    for (let i = 0; i <= length - AVG2; i++) opts.push(avg(frwrd(r, i, AVG2), AVG2, decimals));
+    bestA2 = opts.reduce((b, v) => avgCompare(v) < avgCompare(b) ? v : b, opts[0]);
+  }
+
+  const sdVal = nonDnfFloat.length > 1 ? seconds(String(stdev(nonDnfFloat).toFixed(2))) : '—';
+
+  // p2 block
+  const dnfCount   = findAll(timeList, 'DNF');
+  const dstCount   = findAll(timeList, decimals === 3 ? 'DNF(0.001)' : 'DNF(0.01)');
+  let p2Count = null, unP2Avg = null;
+  if (PLUS_TWO) {
+    p2Count = findAll(timeList, '+');
+    if (avgVal !== 'DNF' && p2Count > 0) {
+      const unplus = timeList.map(s => {
+        if (ydnf(s)) return 'DNF';
+        if (s.includes('+')) return String(minutes(noParen(s).slice(0,-1)) - 2);
+        return String(minutes(noParen(s)));
+      });
+      unplus.sort((a, b) => (a === 'DNF' ? Infinity : a) - (b === 'DNF' ? Infinity : b));
+      const trimmed = unplus.slice(betterTrim, unplus.length - worseTrim).filter(s => s !== 'DNF');
+      unP2Avg = trimmed.length ? (trimmed.reduce((a, b) => a + parseFloat(b), 0) / trimmed.length).toFixed(decimals) : 'DNF';
+    }
+  }
+
+  // Cut ranges
+  const c1Label = CUT2 - CUT1 === 1 ? `${seconds(String(CUT1))}s` : `${seconds(String(CUT1))}–${seconds(String(CUT2))}`;
+  const c2Label = CUT3 - CUT2 === 1 ? `${seconds(String(CUT2))}s` : `${seconds(String(CUT2))}–${seconds(String(CUT3))}`;
+  const inR1 = rFloat.filter(v => v !== 'DNF' && v > CUT1 && v < CUT2).length;
+  const inR2 = rFloat.filter(v => v !== 'DNF' && v > CUT2 && v < CUT3).length;
+  const above = rFloat.filter(v => v !== 'DNF' && v >= CUT3).length;
+  let r1Str = String(inR1), r2Str = String(inR2);
+  if (PLUS_TWO) {
+    const p2inR1 = timeList.filter(s => s.includes('+') && (() => { const v = minutes(numPart(s)); return v > CUT1 && v < CUT2; })()).length;
+    const p2inR2 = timeList.filter(s => s.includes('+') && (() => { const v = minutes(numPart(s)); return v > CUT2 && v < CUT3; })()).length;
+    r1Str = `${p2inR1}/${inR1}`; r2Str = `${p2inR2}/${inR2}`;
+  }
+
+  // Repeats
+  const reps = repeat(rFloat);
+  const repStrs = Object.entries(reps).map(([v, c]) => `${c > 2 ? c + ' ' : ''}${v}${c > 2 ? 's' : ''}`);
+
+  placeholder.remove();
+  outputCols.innerHTML = `
+    <div class="out-card">
+      <h3>Bests &amp; Bads</h3>
+      ${sLine('Best single',    noParen(bestSingle),  true)}
+      ${sLine('Worst single',   noParen(worstSingle))}
+      ${sLine('Best counting',  bestCounting)}
+      ${sLine('Worst counting', worstCounting)}
+      ${AVG1 && bestA1 !== null ? sLine(`Best ao${AVG1}`, bestA1 === 'DNF' ? 'DNF' : bestA1 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA1)) : 'DNF', true) : ''}
+      ${AVG2 && bestA2 !== null ? sLine(`Best ao${AVG2}`, bestA2 === 'DNF' ? 'DNF' : bestA2 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA2)) : 'DNF', true) : ''}
+      ${sLine('Std deviation',  sdVal)}
+    </div>
+    <div class="out-card">
+      <h3>Distribution</h3>
+      ${sLine('DNFs',              dnfCount)}
+      ${sLine('Didn\'t start',     dstCount)}
+      ${PLUS_TWO ? sLine('+2s', p2Count) : ''}
+      ${PLUS_TWO && unP2Avg ? sLine(`Un-+2'd ao${length}`, unP2Avg) : ''}
+      ${sLine(`${PLUS_TWO ? '+2 to ' : ''}${c1Label}`, r1Str)}
+      ${sLine(`${PLUS_TWO ? '+2 to ' : ''}${c2Label}`, r2Str)}
+      ${sLine(`${seconds(String(CUT3))}+`, above)}
+      <div class="stat-line" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="stat-line-key">Repeats</span>
+        <span class="stat-line-val" style="font-size:0.75rem">${repStrs.length ? repStrs.join(', ') : 'none'}</span>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>

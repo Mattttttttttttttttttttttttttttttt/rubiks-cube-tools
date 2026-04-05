@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SQ1 Norm — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+    .opt-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+    .opt-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:6px}
+    .alg-out-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-mono);font-size:0.82rem;margin-bottom:7px;word-break:break-all}
+    .comment{font-size:0.72rem;color:#ffa500;margin-top:4px}
+    select{font-size:0.78rem}
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="split">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>SQ1 Normalizer</div>
+        <div class="panel-sub">Paste algs (one per line) — parentheses, commas, slashes, karn all accepted</div>
+      </div>
+      <div class="input-group">
+        <label class="label">Alg(s)</label>
+        <textarea id="algIn" rows="7" placeholder="/3,0/-3,3/3,0/&#10;or&#10;A U' d e U' d e e T' A"></textarea>
+      </div>
+
+      <div class="opts-grid">
+        <div class="opt-item">
+          <div class="opt-label">Y2 the alg?</div>
+          <label class="toggle">
+            <input type="checkbox" id="lfToggle">
+            <div class="toggle-track"></div><div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="opt-item">
+          <div class="opt-label">Y2 after slice(s)</div>
+          <input type="text" id="lfPos" placeholder="1 (or 2,3 etc.)" style="margin-top:4px">
+        </div>
+        <div class="opt-item">
+          <div class="opt-label">Normalization</div>
+          <label class="toggle">
+            <input type="checkbox" id="normToggle" checked>
+            <div class="toggle-track"></div><div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="opt-item">
+          <div class="opt-label">Output in karn?</div>
+          <select id="karnSel">
+            <option value="auto">Follow alg format</option>
+            <option value="yes">Always karn</option>
+            <option value="no">Never karn</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="goBtn">Normalize</button>
+      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;margin-top:8px"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
+        <div class="panel-sub" id="resultSub"></div>
+      </div>
+      <div id="resultOut">
+        <div class="output-empty">Paste alg(s) and click Normalize.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+import { normalize } from '../shared/sq1lib.js';
+buildNav('sq1');
+
+document.getElementById('goBtn').addEventListener('click', compute);
+
+function compute() {
+  const errMsg = document.getElementById('errMsg');
+  errMsg.textContent = '';
+  const raw = document.getElementById('algIn').value.trim();
+  if (!raw) { errMsg.textContent = 'Paste at least one alg.'; return; }
+
+  const lines = raw.split('\n').map(l=>l.trim()).filter(l => l && !l.toLowerCase().startsWith('searching'));
+  const doLF = document.getElementById('lfToggle').checked;
+  const lfPosRaw = document.getElementById('lfPos').value.trim();
+  let lfPos = [];
+  if (doLF) {
+    if (!lfPosRaw) lfPos = [1];
+    else {
+      lfPos = lfPosRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+      if (!lfPos.length) lfPos = [1];
+    }
+  }
+  const normB = !document.getElementById('normToggle').checked; // leave=normB
+  const karnSel = document.getElementById('karnSel').value;
+  const karnB = karnSel === 'yes' ? true : karnSel === 'no' ? false : null;
+
+  const results = [];
+  for (const line of lines) {
+    try {
+      results.push(normalize(line, lfPos, karnB, normB));
+    } catch(e) {
+      results.push(`ERROR: ${e.message}`);
+    }
+  }
+
+  // Deduplicate if multiple algs
+  const unique = lines.length > 1 ? [...new Set(results)] : results;
+  document.getElementById('resultSub').textContent = unique.length === 1 ? '' : `${unique.length} unique result${unique.length>1?'s':''}`;
+
+  const out = document.getElementById('resultOut');
+  out.innerHTML = unique.map(r => {
+    const [alg, ...commentParts] = r.split('(bad finish)')[0].split('(alignment changes)')[0].trim() !== r.trim()
+      ? [r.replace(/ \(.*\)$/, ''), ...[...r.matchAll(/\((bad finish|alignment changes)\)/g)].map(m=>m[0])]
+      : [r, null];
+    const hasComment = r.includes('(bad finish)') || r.includes('(alignment changes)');
+    const commentHtml = hasComment
+      ? `<div class="comment">${r.replace(alg.trim(), '').trim()}</div>` : '';
+    const isErr = r.startsWith('ERROR');
+    return `<div class="alg-out-row" style="${isErr?'color:#c41e3a':''}">${isErr?r:alg}${commentHtml}</div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

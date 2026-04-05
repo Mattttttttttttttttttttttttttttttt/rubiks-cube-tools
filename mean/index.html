@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mean Generator — cubetools</title>
+  <link rel="stylesheet" href="../shared/style.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="split">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Mean Generator</div>
+        <div class="panel-sub">One solve per line — computes mean of 3 (or more)</div>
+      </div>
+      <div class="input-group">
+        <label class="label">Solves (one per line)</label>
+        <textarea id="solves" rows="10" placeholder="9.23&#10;8.71&#10;10.04"></textarea>
+      </div>
+      <button class="btn btn-primary" id="goBtn">Generate mean</button>
+      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;margin-top:8px"></div>
+    </div>
+    <div class="panel" style="justify-content:center">
+      <div class="output-box" id="out">
+        <div class="output-empty">Enter your solves on the left.</div>
+      </div>
+      <button class="btn btn-ghost mt-16" id="copyBtn" style="display:none">Copy result</button>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { buildNav } from '../shared/nav.js';
+import { ndnf, numPart } from '../shared/helpers.js';
+buildNav('mean');
+
+const goBtn  = document.getElementById('goBtn');
+const copyBtn= document.getElementById('copyBtn');
+const out    = document.getElementById('out');
+const errMsg = document.getElementById('errMsg');
+
+goBtn.addEventListener('click', compute);
+document.getElementById('solves').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.metaKey) compute();
+});
+
+function compute() {
+  errMsg.textContent = '';
+  const lines = document.getElementById('solves').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (lines.length < 2) { errMsg.textContent = 'Need at least 2 solves.'; return; }
+
+  const times = lines.join(', ');
+  const hasDnf = lines.some(l => l.toUpperCase().includes('DNF'));
+  if (hasDnf) {
+    out.innerHTML = `<div class="output-big" style="color:#c41e3a">DNF</div><div class="output-detail">${times}</div>`;
+    copyBtn.dataset.result = `DNF = ${times}`;
+    copyBtn.style.display = '';
+    return;
+  }
+
+  const vals = lines.map(l => parseFloat(numPart(l)));
+  if (vals.some(isNaN)) { errMsg.textContent = 'One or more times couldn\'t be parsed.'; return; }
+  const mean = vals.reduce((a,b)=>a+b,0) / vals.length;
+  const decimals = Math.max(...lines.map(l => { const np=numPart(l); return np.includes('.')?np.split('.')[1].length:0; }));
+  const result = mean.toFixed(Math.max(decimals, 3));
+
+  out.innerHTML = `<div class="output-big">${result}</div><div class="output-detail">${times}</div>`;
+  copyBtn.dataset.result = `${result} = ${times}`;
+  copyBtn.style.display = '';
+}
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
+  const old = copyBtn.textContent; copyBtn.textContent = 'Copied!';
+  setTimeout(() => copyBtn.textContent = old, 1500);
+});
+</script>
+</body>
+</html>
