@@ -5,14 +5,14 @@
   <title>Mega Scram — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .mega-split{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - var(--nav-h))}
-    .mega-panel{padding:22px;display:flex;flex-direction:column;position:relative}
-    .mega-panel+.mega-panel{border-left:1px solid var(--border)}
-    .mega-textarea{flex:1;width:100%;resize:none;font-family:var(--font-mono);font-size:0.82rem;line-height:1.9}
-    .copy-corner{position:absolute;top:14px;right:14px}
-    .legend{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:0.72rem;line-height:1.8;color:var(--text-dim)}
-    .legend code{font-family:var(--font-mono);color:var(--accent)}
-    @media(max-width:700px){.mega-split{grid-template-columns:1fr;height:auto}}
+    .mega-split { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - var(--nav-h)); }
+    .mega-panel { padding: 22px var(--side-pad); display: flex; flex-direction: column; position: relative; }
+    .mega-panel + .mega-panel { border-left: 1px solid var(--border); }
+    .mega-textarea { flex: 1; width: 100%; resize: none; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9; }
+    .copy-corner { position: absolute; top: 14px; right: var(--side-pad); }
+    .legend { margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 0.72rem; line-height: 1.8; color: var(--text-dim); }
+    .legend code { font-family: var(--font-mono); color: var(--accent); }
+    @media (max-width: 700px) { .mega-split { grid-template-columns: 1fr; height: auto; } }
   </style>
 </head>
 <body>
@@ -24,11 +24,12 @@
         <div class="panel-title"><span class="dot"></span>Carrot notation</div>
         <div class="panel-sub">Type or paste — converts live</div>
       </div>
-      <textarea class="mega-textarea" id="carrotIn" placeholder="R++ D-- R++ D-- U&#10;R-- D++ R-- D++ U'&#10;…"></textarea>
+      <textarea class="mega-textarea" id="carrotIn" placeholder="++ --&#10;-- ++&#10;U&#10;-+ +-&#10;U'" spellcheck="false"></textarea>
       <div class="legend">
-        <div><code>+</code> = clockwise &nbsp;&nbsp; <code>-</code> = counter-clockwise</div>
-        <div><code>R++ D--</code> → one move pair per line</div>
-        <div><code>U</code> / <code>U'</code> → passed through unchanged</div>
+        <div><code>++</code> &rarr; R++ D++ &nbsp;&nbsp; <code>--</code> &rarr; R-- D--</div>
+        <div><code>+-</code> &rarr; R++ D-- &nbsp;&nbsp; <code>-+</code> &rarr; R-- D++</div>
+        <div><code>U</code> / <code>U'</code> &mdash; passed through unchanged</div>
+        <div>One move pair per token, space-separated on each line.</div>
       </div>
     </div>
     <div class="mega-panel">
@@ -37,7 +38,7 @@
         <div class="panel-sub">Read-only output</div>
       </div>
       <button class="btn btn-ghost btn-sm copy-corner" id="copyBtn">Copy</button>
-      <textarea class="mega-textarea" id="wcaOut" readonly placeholder="WCA notation will appear here…"></textarea>
+      <textarea class="mega-textarea" id="wcaOut" readonly placeholder="WCA notation will appear here&hellip;" spellcheck="false"></textarea>
     </div>
   </div>
 </div>
@@ -45,89 +46,31 @@
 import { buildNav } from '../shared/nav.js';
 buildNav('mega');
 
-const carrotIn = document.getElementById('carrotIn');
-const wcaOut   = document.getElementById('wcaOut');
-const copyBtn  = document.getElementById('copyBtn');
-
-function converter(sign) {
-  // sign is ['+'/'-', '+'/'-']
-  const r = sign[0] === '+' ? 'R++' : 'R--';
-  const d = sign[1] === '+' ? 'D++' : 'D--';
-  return `${r} ${d}`;
+function converter(token) {
+  const s0 = token[0];
+  const s1 = token[1];
+  return 'R' + s0 + s0 + ' D' + s1 + s1;
 }
 
-function convertLine(line) {
-  const parts = line.trim().split(/\s+/);
-  return parts.map(m => {
-    if (m === 'U' || m === "U'") return m;
-    if (m.length === 3) {
-      // e.g. R++ or D--
-      return m; // already WCA
-    }
-    // carrot move pair like "++" or "--" or "+-" etc
-    // or could be a pair token
-    return m;
-  }).join(' ');
-}
-
-function carrotToWca(text) {
-  const lines = text.split('\n');
-  return lines.map(line => {
-    const parts = line.trim().split(/\s+/);
-    return parts.map(m => {
-      if (m === 'U' || m === "U'") return m;
-      // detect carrot pair: two chars from +/-
-      if (/^[+\-]{2}$/.test(m)) {
-        const r = m[0] === '+' ? 'R++' : 'R--';
-        const d = m[1] === '+' ? 'D++' : 'D--';
-        return `${r} ${d}`;
-      }
-      // already WCA-like: R++, D--, etc.
-      return m;
+function convert(text) {
+  return text.split('\n').map(function(line) {
+    var tokens = line.trim().split(/\s+/).filter(Boolean);
+    return tokens.map(function(t) {
+      if (t === 'U' || t === "U'") return t;
+      if (/^[+\-]{2}$/.test(t)) return converter(t);
+      return t;
     }).join(' ');
   }).join('\n');
 }
 
-// Convert carrot notation to WCA mega notation
-// Python: converter([sign1, sign2]) => "R{s}{s} D{s}{s}"
-// Each move token on a line is either a pair like "++" "--" "+-" "-+"
-// or a U/U' pass-through
-function converter(sign) {
-  // sign: ['+'/'-', '+'/'-']
-  const r = sign[0] === '+' ? 'R++' : 'R--';
-  const d = sign[1] === '+' ? 'D++' : 'D--';
-  return `${r} ${d}`;
-}
-
-function convertCarrot(text) {
-  const lines = text.split('\n');
-  const out = [];
-  for (const line of lines) {
-    const parts = line.trim().split(/\s+/).filter(Boolean);
-    const converted = [];
-    for (const m of parts) {
-      if (m === 'U' || m === "U'") { converted.push(m); continue; }
-      // Two-char carrot token: ++ -- +- -+
-      if (m.length === 2 && /^[+\-]{2}$/.test(m)) {
-        converted.push(converter([m[0], m[1]]));
-        continue;
-      }
-      // Already WCA-like pass-through
-      converted.push(m);
-    }
-    out.push(converted.join(' '));
-  }
-  return out.join('\n');
-}
-
-carrotIn.addEventListener('input', () => {
-  wcaOut.value = convertCarrot(carrotIn.value);
+document.getElementById('carrotIn').addEventListener('input', function() {
+  document.getElementById('wcaOut').value = convert(this.value);
 });
 
-copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(wcaOut.value);
-  const old = copyBtn.textContent; copyBtn.textContent = 'Copied!';
-  setTimeout(() => copyBtn.textContent = old, 1500);
+document.getElementById('copyBtn').addEventListener('click', function() {
+  navigator.clipboard.writeText(document.getElementById('wcaOut').value);
+  var old = this.textContent; this.textContent = 'Copied!';
+  setTimeout(function() { document.getElementById('copyBtn').textContent = old; }, 1500);
 });
 </script>
 </body>

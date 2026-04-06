@@ -2,25 +2,20 @@
 // Usage: import './nav.js' and call buildNav(activePath)
 
 export const TOOLS = [
-  { path: 'average', label: 'Average Gen',    color: '#ffd500' },
-  { path: 'stats',   label: 'Avg Stats',      color: '#009b48' },
-  { path: 'aox',     label: 'AoX List',       color: '#0046ad' },
-  { path: 'subx',    label: 'Sub-X Count',    color: '#9855d4' },
-  { path: 'mean',    label: 'Mean Gen',        color: '#ff5800' },
-  { path: 'add',     label: 'Time Add',        color: '#c41e3a' },
-  { path: 'filter',  label: 'Alg Filter',      color: '#00a6d6' },
-  { path: 'mega',    label: 'Mega Scram',      color: '#ff6b6b' },
-  { path: 'sq1',     label: 'SQ1 Norm',       color: '#ffa500' },
-  { path: 'oblp',    label: 'OBLP Trainer',   color: '#a0e080' },
-  { path: 'notation',label: 'Notation',        color: '#e0a0ff' },
+  { path: 'average', label: 'Avg Gen',      longLabel: 'Average Generator',         color: '#ffd500' },
+  { path: 'stats',   label: 'Avg Stats',    longLabel: 'Average Statistics',         color: '#009b48' },
+  { path: 'aox',     label: 'AoX List',     longLabel: 'Average of X List',          color: '#0046ad' },
+  { path: 'subx',    label: 'Sub-X Count',  longLabel: 'Sub-X Count',                color: '#9855d4' },
+  { path: 'mean',    label: 'Mean Gen',     longLabel: 'Mean of 3 Generator',        color: '#ff5800' },
+  { path: 'add',     label: 'Time Add',     longLabel: 'Time Adder',                 color: '#c41e3a' },
+  { path: 'filter',  label: 'Alg Filter',   longLabel: 'Algorithm Filter',           color: '#00a6d6' },
+  { path: 'mega',    label: 'Mega Scram',   longLabel: 'Megaminx Scramble Converter',color: '#ff6b6b' },
+  { path: 'sq1',     label: 'SQ1 Norm',     longLabel: 'Square-1 Normalizer',        color: '#ffa500' },
+  { path: 'oblp',    label: 'OBLP',         longLabel: 'OBLP Trainer',               color: '#a0e080' },
+  { path: 'notation',label: 'Notation',     longLabel: 'Notation Converter',         color: '#e0a0ff' },
 ];
 
 export function buildNav(activePath) {
-  // Detect depth: if we're in a subdir, go up one level
-  const here = window.location.pathname;
-  const depth = here.split('/').filter(Boolean).length;
-  // base is relative — 0 depth = './', 1 depth = '../', etc.
-  // We'll just use relative from the tool page (one level deep from root)
   const base = activePath ? '../' : './';
 
   const nav = document.getElementById('nav');
@@ -31,13 +26,13 @@ export function buildNav(activePath) {
 
   nav.innerHTML = `
     <div class="nav-inner">
-      <a class="nav-logo" href="${base}index.html"><em>cube</em>tools</a>
+      <a class="nav-logo" href="${base}">cubing <em>tools</em></a>
       <div class="nav-sep"></div>
       <div class="nav-tools">
         ${TOOLS.map(t => `
           <a class="nav-tool ${activePath === t.path ? 'active' : ''}"
              style="--tool-color:${t.color}"
-             href="${base}${t.path}/index.html">${t.label}</a>
+             href="${base}${t.path}/">${t.label}</a>
         `).join('')}
       </div>
     </div>`;

@@ -4,76 +4,437 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Mean Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
+  <style>
+    .solve-list { position: relative; }
+
+    .drag-handle {
+      width: 16px; height: 28px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3.5px; cursor: grab; flex-shrink: 0;
+      opacity: 0.2; touch-action: none; user-select: none;
+      padding: 2px 3px; transition: opacity 0.1s;
+    }
+    .drag-handle:hover  { opacity: 0.65; }
+    .drag-handle:active { cursor: grabbing; opacity: 1; }
+    .drag-handle span {
+      display: block; width: 10px; height: 1.5px;
+      background: var(--text); border-radius: 1px;
+    }
+
+    .remove-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1rem; padding: 2px 6px;
+      line-height: 1; flex-shrink: 0;
+    }
+    .remove-btn:hover { color: #c41e3a; }
+
+    .output-mean-str {
+      font-family: var(--font-mono); font-size: 0.8rem;
+      color: var(--text-dim); line-height: 2; word-break: break-all;
+    }
+    #copyBtn { margin-top: 14px; }
+  </style>
 </head>
 <body>
 <div id="nav"></div>
 <div class="page">
   <div class="split">
+
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title"><span class="dot"></span>Mean Generator</div>
-        <div class="panel-sub">One solve per line — computes mean of 3 (or more)</div>
+        <div class="panel-sub">Enter solves — live output on the right</div>
       </div>
-      <div class="input-group">
-        <label class="label">Solves (one per line)</label>
-        <textarea id="solves" rows="10" placeholder="9.23&#10;8.71&#10;10.04"></textarea>
+      <div id="solveList" class="solve-list"></div>
+      <div class="mt-8">
+        <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
       </div>
-      <button class="btn btn-primary" id="goBtn">Generate mean</button>
-      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;margin-top:8px"></div>
+      <div class="divider"></div>
+      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;"></div>
     </div>
-    <div class="panel" style="justify-content:center">
-      <div class="output-box" id="out">
-        <div class="output-empty">Enter your solves on the left.</div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
+        <div class="panel-sub">Updates live as you type</div>
+      </div>
+      <div class="output-box" id="outputBox">
+        <div class="output-empty" id="emptyMsg">Add at least 2 solves to see the mean.</div>
+        <div id="meanDisplay" style="display:none">
+          <div class="output-big" id="meanValue">—</div>
+          <div class="output-mean-str" id="meanStr"></div>
+        </div>
       </div>
       <button class="btn btn-ghost mt-16" id="copyBtn" style="display:none">Copy result</button>
     </div>
+
   </div>
 </div>
+
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { ndnf, numPart } from '../shared/helpers.js';
+import { numPart } from '../shared/helpers.js';
 buildNav('mean');
 
-const goBtn  = document.getElementById('goBtn');
-const copyBtn= document.getElementById('copyBtn');
-const out    = document.getElementById('out');
-const errMsg = document.getElementById('errMsg');
+// ── State ─────────────────────────────────────────────────────────────────────
+let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
+let dragState = null;
 
-goBtn.addEventListener('click', compute);
-document.getElementById('solves').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.metaKey) compute();
-});
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const solveList  = document.getElementById('solveList');
+const errMsg     = document.getElementById('errMsg');
+const emptyMsg   = document.getElementById('emptyMsg');
+const meanDisplay= document.getElementById('meanDisplay');
+const meanValue  = document.getElementById('meanValue');
+const meanStr    = document.getElementById('meanStr');
+const copyBtn    = document.getElementById('copyBtn');
 
-function compute() {
+document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
+
+// ── Time utilities ────────────────────────────────────────────────────────────
+const timeRegex   = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getAllFields = () => [...solveList.querySelectorAll('.solve-field')];
+const getRowIndex = el => [...solveList.querySelectorAll('.solve-row')].indexOf(el);
+
+function decimalPlaces(v) {
+  const i = v.lastIndexOf('.');
+  return i >= 0 ? v.length - i - 1 : 0;
+}
+
+function toSeconds(v) {
+  const s = v.trim();
+  if (s.includes(':')) {
+    const [m, sec] = s.split(':');
+    return parseFloat(m) * 60 + parseFloat(sec);
+  }
+  return parseFloat(s);
+}
+
+function formatTime(val, dec) {
+  const prec = Math.max(dec, 2);
+  if (val >= 60) {
+    const m = Math.floor(val / 60);
+    const s = (val - m * 60).toFixed(prec);
+    return `${m}:${s.padStart(prec + 3, '0')}`;
+  }
+  return val.toFixed(prec);
+}
+
+// Effective time value for mean computation
+function effectiveSeconds(s) {
+  if (s.penalty === 'dnf') return Infinity;
+  if (!s.raw || !timeRegex(s.raw)) return NaN;
+  const base = toSeconds(s.raw);
+  return s.penalty === 'p2' ? base + 2 : base;
+}
+
+function renumberRows() {
+  solveList.querySelectorAll('.solve-num').forEach((el, i) => {
+    el.textContent = (i + 1) + '.';
+  });
+}
+
+function updatePenBtns(rowEl, penalty) {
+  const btns = rowEl.querySelectorAll('.pen-btn');
+  if (!btns.length) return;
+  btns[0].classList.toggle('p2',  penalty === 'p2');
+  btns[1].classList.toggle('dnf', penalty === 'dnf');
+}
+
+// ── Row creation ──────────────────────────────────────────────────────────────
+function createRowEl(idx) {
+  const s = solves[idx];
+  const row = document.createElement('div');
+  row.className = 'solve-row';
+
+  // Drag handle
+  const handle = document.createElement('div');
+  handle.className = 'drag-handle';
+  handle.innerHTML = '<span></span><span></span><span></span>';
+  handle.addEventListener('pointerdown', e => { e.preventDefault(); startDrag(e, row); });
+
+  // Number
+  const num = document.createElement('div');
+  num.className = 'solve-num';
+  num.textContent = (idx + 1) + '.';
+
+  // Input
+  const fieldWrap = document.createElement('div');
+  fieldWrap.style.flex = '1';
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.className = 'solve-field';
+  field.placeholder = '0.00';
+  field.value = s.raw;
+  if (s.penalty === 'dnf') field.classList.add('dnf-state');
+  else if (s.raw) field.classList.add('ok');
+  fieldWrap.appendChild(field);
+
+  field.addEventListener('input', () => {
+    const ri = getRowIndex(row);
+    if (ri === -1) return;
+    const v = field.value;
+
+    // Shortcut: "dnf(" → DNF flag
+    if (/^dnf\($/i.test(v)) {
+      field.value = '';
+      solves[ri].raw = '';
+      solves[ri].penalty = 'dnf';
+      field.classList.add('dnf-state');
+      field.classList.remove('err', 'ok');
+      updatePenBtns(row, 'dnf');
+      recompute();
+      return;
+    }
+
+    // Shortcut: ends with "+" → +2 flag, store pre-penalty time (typed - 2)
+    if (v.endsWith('+')) {
+      const base = v.slice(0, -1).trim();
+      if (timeRegex(base)) {
+        const rawSecs = toSeconds(base) - 2;
+        if (rawSecs >= 0) {
+          const dec = decimalPlaces(base);
+          field.value = formatTime(rawSecs, dec);
+          solves[ri].raw = field.value;
+          solves[ri].penalty = 'p2';
+          field.classList.remove('err', 'dnf-state');
+          field.classList.add('ok');
+          updatePenBtns(row, 'p2');
+          recompute();
+          return;
+        }
+      }
+    }
+
+    solves[ri].raw = v.trim();
+    recompute();
+  });
+
+  field.addEventListener('change', () => {
+    const v = field.value.trim();
+    if (v && !timeRegex(v) && v.toUpperCase() !== 'DNF') {
+      field.classList.add('err'); field.classList.remove('ok');
+    } else {
+      field.classList.remove('err');
+      if (v) field.classList.add('ok');
+    }
+  });
+
+  field.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const ri = getRowIndex(row);
+    const fields = getAllFields();
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) {
+      if (ri > 0) fields[ri - 1].focus();           // modifier+Enter → move up
+    } else {
+      if (ri === fields.length - 1) addRow(true);   // Enter on last → add row
+      else fields[ri + 1].focus();                   // Enter → move down
+    }
+  });
+
+  // Penalty buttons
+  const penaltyWrap = document.createElement('div');
+  penaltyWrap.className = 'solve-penalties';
+
+  function makePen(label, type) {
+    const btn = document.createElement('button');
+    btn.className = 'pen-btn' + (s.penalty === type ? ` ${type}` : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      const ri = getRowIndex(row);
+      if (ri === -1) return;
+      solves[ri].penalty = solves[ri].penalty === type ? null : type;
+      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      updatePenBtns(row, solves[ri].penalty);
+      recompute();
+    });
+    return btn;
+  }
+  penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
+
+  // Remove
+  const rm = document.createElement('button');
+  rm.className = 'remove-btn';
+  rm.textContent = '×';
+  rm.addEventListener('click', () => {
+    const ri = getRowIndex(row);
+    if (ri === -1) return;
+    solves.splice(ri, 1);
+    row.remove();
+    renumberRows();
+    recompute();
+  });
+
+  row.append(handle, num, fieldWrap, penaltyWrap, rm);
+  return row;
+}
+
+function rebuildRows() {
+  solveList.innerHTML = '';
+  solves.forEach((_, i) => solveList.appendChild(createRowEl(i)));
+}
+
+function addRow(focusNew = true) {
+  solves.push({ raw: '', penalty: null });
+  const row = createRowEl(solves.length - 1);
+  solveList.appendChild(row);
+  if (focusNew) row.querySelector('.solve-field')?.focus();
+  recompute();
+}
+
+// ── Drag-to-reorder ───────────────────────────────────────────────────────────
+function startDrag(e, rowEl) {
+  if (dragState) return;
+  const fromIdx = getRowIndex(rowEl);
+  const rect    = rowEl.getBoundingClientRect();
+
+  const ghost = rowEl.cloneNode(true);
+  Object.assign(ghost.style, {
+    position: 'fixed', margin: '0', zIndex: '1000',
+    left: rect.left + 'px', top: rect.top + 'px',
+    width: rect.width + 'px', height: rect.height + 'px',
+    opacity: '0.85', pointerEvents: 'none', boxSizing: 'border-box',
+    background: 'var(--surface-2)', border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius)',
+  });
+  document.body.appendChild(ghost);
+
+  const indicator = document.createElement('div');
+  Object.assign(indicator.style, {
+    position: 'absolute', left: '0', right: '0', height: '2px',
+    background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)',
+    borderRadius: '1px', pointerEvents: 'none', zIndex: '999', display: 'none',
+  });
+  solveList.appendChild(indicator);
+
+  rowEl.style.opacity = '0.2';
+
+  dragState = { fromIdx, rowEl, ghost, indicator,
+    offsetY: e.clientY - rect.top, dropIdx: fromIdx };
+
+  document.addEventListener('pointermove', onDragMove, { passive: true });
+  document.addEventListener('pointerup', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+  const { ghost, indicator, offsetY } = dragState;
+  ghost.style.top = (e.clientY - offsetY) + 'px';
+
+  const rows = [...solveList.querySelectorAll('.solve-row')];
+  const listRect = solveList.getBoundingClientRect();
+  let dropIdx = rows.length;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { dropIdx = i; break; }
+  }
+  dragState.dropIdx = dropIdx;
+
+  indicator.style.display = 'block';
+  const scrollTop = solveList.scrollTop;
+  if (dropIdx < rows.length) {
+    const r = rows[dropIdx].getBoundingClientRect();
+    indicator.style.top = (r.top - listRect.top + scrollTop - 1) + 'px';
+  } else if (rows.length > 0) {
+    const r = rows[rows.length - 1].getBoundingClientRect();
+    indicator.style.top = (r.bottom - listRect.top + scrollTop + 1) + 'px';
+  }
+
+  const panel = solveList.closest('.panel');
+  if (panel) {
+    const pr = panel.getBoundingClientRect();
+    if (e.clientY < pr.top + 64) panel.scrollTop -= 10;
+    else if (e.clientY > pr.bottom - 64) panel.scrollTop += 10;
+  }
+}
+
+function onDragEnd() {
+  if (!dragState) return;
+  const { fromIdx, dropIdx, rowEl, ghost, indicator } = dragState;
+  ghost.remove(); indicator.remove(); rowEl.style.opacity = '';
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+  dragState = null;
+
+  if (dropIdx === fromIdx || dropIdx === fromIdx + 1) return;
+  const [moved] = solves.splice(fromIdx, 1);
+  solves.splice(dropIdx > fromIdx ? dropIdx - 1 : dropIdx, 0, moved);
+  rebuildRows();
+  recompute();
+}
+
+// ── Compute ───────────────────────────────────────────────────────────────────
+function recompute() {
   errMsg.textContent = '';
-  const lines = document.getElementById('solves').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  if (lines.length < 2) { errMsg.textContent = 'Need at least 2 solves.'; return; }
+  const filled = solves.filter(s => s.raw || s.penalty === 'dnf');
 
-  const times = lines.join(', ');
-  const hasDnf = lines.some(l => l.toUpperCase().includes('DNF'));
+  if (filled.length < 2) {
+    emptyMsg.style.display = '';
+    emptyMsg.textContent = 'Add at least 2 solves to see the mean.';
+    meanDisplay.style.display = 'none';
+    copyBtn.style.display = 'none';
+    return;
+  }
+
+  // Any DNF → mean is DNF
+  const hasDnf = solves.some(s => s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF');
+  const labels = solves.map(s => {
+    if (!s.raw && s.penalty !== 'dnf') return null;
+    if (s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF')
+      return s.raw && s.raw.toUpperCase() !== 'DNF' ? `DNF(${s.raw})` : 'DNF';
+    if (s.penalty === 'p2') {
+      const val = toSeconds(s.raw) + 2;
+      return formatTime(val, decimalPlaces(s.raw)) + '+';
+    }
+    return s.raw;
+  }).filter(Boolean);
+
   if (hasDnf) {
-    out.innerHTML = `<div class="output-big" style="color:#c41e3a">DNF</div><div class="output-detail">${times}</div>`;
-    copyBtn.dataset.result = `DNF = ${times}`;
+    emptyMsg.style.display = 'none';
+    meanDisplay.style.display = '';
+    meanValue.style.color = '#c41e3a';
+    meanValue.textContent = 'DNF';
+    meanStr.innerHTML = `<span style="color:var(--text-muted)">${labels.join(', ')}</span>`;
+    copyBtn.dataset.result = `DNF = ${labels.join(', ')}`;
     copyBtn.style.display = '';
     return;
   }
 
-  const vals = lines.map(l => parseFloat(numPart(l)));
-  if (vals.some(isNaN)) { errMsg.textContent = 'One or more times couldn\'t be parsed.'; return; }
-  const mean = vals.reduce((a,b)=>a+b,0) / vals.length;
-  const decimals = Math.max(...lines.map(l => { const np=numPart(l); return np.includes('.')?np.split('.')[1].length:0; }));
-  const result = mean.toFixed(Math.max(decimals, 3));
+  // Validate
+  const invalid = solves.filter(s => s.raw && !timeRegex(s.raw));
+  if (invalid.length) {
+    errMsg.textContent = `Invalid time${invalid.length > 1 ? 's' : ''}: ${invalid.map(s => s.raw).join(', ')}`;
+    return;
+  }
 
-  out.innerHTML = `<div class="output-big">${result}</div><div class="output-detail">${times}</div>`;
-  copyBtn.dataset.result = `${result} = ${times}`;
+  const vals = solves.map(s => effectiveSeconds(s)).filter(v => isFinite(v) && !isNaN(v));
+  if (!vals.length) return;
+
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const dec  = Math.max(...solves.filter(s => s.raw).map(s => decimalPlaces(s.raw)));
+  const prec = Math.max(dec, 3);
+  const result = formatTime(mean, prec);
+
+  emptyMsg.style.display = 'none';
+  meanDisplay.style.display = '';
+  meanValue.style.color = '';
+  meanValue.textContent = result;
+  meanStr.innerHTML = `${result} = <span style="color:var(--text-dim)">${labels.join(', ')}</span>`;
+  copyBtn.dataset.result = `${result} = ${labels.join(', ')}`;
   copyBtn.style.display = '';
 }
 
 copyBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
-  const old = copyBtn.textContent; copyBtn.textContent = 'Copied!';
+  const old = copyBtn.textContent;
+  copyBtn.textContent = 'Copied!';
   setTimeout(() => copyBtn.textContent = old, 1500);
 });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+addRow(true);
 </script>
 </body>
 </html>
