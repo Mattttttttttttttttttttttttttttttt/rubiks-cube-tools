@@ -5,7 +5,15 @@
   <title>Mean Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .solve-list { position: relative; }
+    .solve-list { position: relative; display: flex; flex-direction: column; gap: 7px; }
+
+    .solve-entry { display: flex; flex-direction: column; gap: 3px; }
+    .solve-error {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: #c41e3a; padding-left: 106px;
+      display: none;
+    }
+    .solve-error.visible { display: block; }
 
     .drag-handle {
       width: 16px; height: 28px;
@@ -34,6 +42,13 @@
       color: var(--text-dim); line-height: 2; word-break: break-all;
     }
     #copyBtn { margin-top: 14px; }
+
+    .drop-indicator {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent);
+      border-radius: 1px; pointer-events: none; z-index: 50;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -51,7 +66,6 @@
         <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
       </div>
       <div class="divider"></div>
-      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;"></div>
     </div>
 
     <div class="panel">
@@ -78,24 +92,24 @@ import { numPart } from '../shared/helpers.js';
 buildNav('mean');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
+let solves    = []; // { raw, penalty: null|'p2'|'dnf' }
 let dragState = null;
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const solveList  = document.getElementById('solveList');
-const errMsg     = document.getElementById('errMsg');
-const emptyMsg   = document.getElementById('emptyMsg');
-const meanDisplay= document.getElementById('meanDisplay');
-const meanValue  = document.getElementById('meanValue');
-const meanStr    = document.getElementById('meanStr');
-const copyBtn    = document.getElementById('copyBtn');
+const solveList   = document.getElementById('solveList');
+const emptyMsg    = document.getElementById('emptyMsg');
+const meanDisplay = document.getElementById('meanDisplay');
+const meanValue   = document.getElementById('meanValue');
+const meanStr     = document.getElementById('meanStr');
+const copyBtn     = document.getElementById('copyBtn');
 
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
-// ── Time utilities ────────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
 const timeRegex   = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getEntries  = () => [...solveList.querySelectorAll('.solve-entry')];
 const getAllFields = () => [...solveList.querySelectorAll('.solve-field')];
-const getRowIndex = el => [...solveList.querySelectorAll('.solve-row')].indexOf(el);
+const getEntryIndex = el => getEntries().indexOf(el.closest('.solve-entry'));
 
 function decimalPlaces(v) {
   const i = v.lastIndexOf('.');
@@ -121,30 +135,33 @@ function formatTime(val, dec) {
   return val.toFixed(prec);
 }
 
-// Effective time value for mean computation
-function effectiveSeconds(s) {
-  if (s.penalty === 'dnf') return Infinity;
-  if (!s.raw || !timeRegex(s.raw)) return NaN;
-  const base = toSeconds(s.raw);
-  return s.penalty === 'p2' ? base + 2 : base;
-}
-
 function renumberRows() {
   solveList.querySelectorAll('.solve-num').forEach((el, i) => {
     el.textContent = (i + 1) + '.';
   });
 }
 
-function updatePenBtns(rowEl, penalty) {
-  const btns = rowEl.querySelectorAll('.pen-btn');
+function updatePenBtns(entry, penalty) {
+  const btns = entry.querySelectorAll('.pen-btn');
   if (!btns.length) return;
   btns[0].classList.toggle('p2',  penalty === 'p2');
   btns[1].classList.toggle('dnf', penalty === 'dnf');
 }
 
+function setInlineError(entry, msg) {
+  const el = entry.querySelector('.solve-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('visible', !!msg);
+}
+
 // ── Row creation ──────────────────────────────────────────────────────────────
-function createRowEl(idx) {
+function createEntryEl(idx) {
   const s = solves[idx];
+
+  const entry = document.createElement('div');
+  entry.className = 'solve-entry';
+
   const row = document.createElement('div');
   row.className = 'solve-row';
 
@@ -152,7 +169,7 @@ function createRowEl(idx) {
   const handle = document.createElement('div');
   handle.className = 'drag-handle';
   handle.innerHTML = '<span></span><span></span><span></span>';
-  handle.addEventListener('pointerdown', e => { e.preventDefault(); startDrag(e, row); });
+  handle.addEventListener('pointerdown', e => { e.preventDefault(); startDrag(e, entry); });
 
   // Number
   const num = document.createElement('div');
@@ -172,7 +189,7 @@ function createRowEl(idx) {
   fieldWrap.appendChild(field);
 
   field.addEventListener('input', () => {
-    const ri = getRowIndex(row);
+    const ri = getEntryIndex(field);
     if (ri === -1) return;
     const v = field.value;
 
@@ -183,12 +200,12 @@ function createRowEl(idx) {
       solves[ri].penalty = 'dnf';
       field.classList.add('dnf-state');
       field.classList.remove('err', 'ok');
-      updatePenBtns(row, 'dnf');
+      updatePenBtns(entry, 'dnf');
       recompute();
       return;
     }
 
-    // Shortcut: ends with "+" → +2 flag, store pre-penalty time (typed - 2)
+    // Shortcut: ends with "+" → +2 flag
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
@@ -200,7 +217,7 @@ function createRowEl(idx) {
           solves[ri].penalty = 'p2';
           field.classList.remove('err', 'dnf-state');
           field.classList.add('ok');
-          updatePenBtns(row, 'p2');
+          updatePenBtns(entry, 'p2');
           recompute();
           return;
         }
@@ -211,26 +228,48 @@ function createRowEl(idx) {
     recompute();
   });
 
-  field.addEventListener('change', () => {
-    const v = field.value.trim();
-    if (v && !timeRegex(v) && v.toUpperCase() !== 'DNF') {
-      field.classList.add('err'); field.classList.remove('ok');
-    } else {
-      field.classList.remove('err');
-      if (v) field.classList.add('ok');
-    }
-  });
-
   field.addEventListener('keydown', e => {
+    const ri = getEntryIndex(field);
+
+    // Ctrl+1 → clear penalty
+    if (e.ctrlKey && e.key === '1') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = null;
+      field.classList.remove('dnf-state');
+      updatePenBtns(entry, null);
+      recompute();
+      return;
+    }
+    // Ctrl+2 → toggle +2
+    if (e.ctrlKey && e.key === '2') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = solves[ri].penalty === 'p2' ? null : 'p2';
+      field.classList.remove('dnf-state');
+      updatePenBtns(entry, solves[ri].penalty);
+      recompute();
+      return;
+    }
+    // Ctrl+3 → toggle DNF
+    if (e.ctrlKey && e.key === '3') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = solves[ri].penalty === 'dnf' ? null : 'dnf';
+      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      updatePenBtns(entry, solves[ri].penalty);
+      recompute();
+      return;
+    }
+
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    const ri = getRowIndex(row);
     const fields = getAllFields();
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) {
-      if (ri > 0) fields[ri - 1].focus();           // modifier+Enter → move up
+      if (ri > 0) fields[ri - 1].focus();
     } else {
-      if (ri === fields.length - 1) addRow(true);   // Enter on last → add row
-      else fields[ri + 1].focus();                   // Enter → move down
+      if (ri === fields.length - 1) addRow(true);
+      else fields[ri + 1].focus();
     }
   });
 
@@ -243,11 +282,11 @@ function createRowEl(idx) {
     btn.className = 'pen-btn' + (s.penalty === type ? ` ${type}` : '');
     btn.textContent = label;
     btn.addEventListener('click', () => {
-      const ri = getRowIndex(row);
+      const ri = getEntryIndex(field);
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === type ? null : type;
       field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
-      updatePenBtns(row, solves[ri].penalty);
+      updatePenBtns(entry, solves[ri].penalty);
       recompute();
     });
     return btn;
@@ -259,59 +298,65 @@ function createRowEl(idx) {
   rm.className = 'remove-btn';
   rm.textContent = '×';
   rm.addEventListener('click', () => {
-    const ri = getRowIndex(row);
+    const ri = getEntryIndex(field);
     if (ri === -1) return;
     solves.splice(ri, 1);
-    row.remove();
+    entry.remove();
     renumberRows();
     recompute();
   });
 
   row.append(handle, num, fieldWrap, penaltyWrap, rm);
-  return row;
+
+  const errLine = document.createElement('div');
+  errLine.className = 'solve-error';
+
+  entry.append(row, errLine);
+  return entry;
 }
 
 function rebuildRows() {
   solveList.innerHTML = '';
-  solves.forEach((_, i) => solveList.appendChild(createRowEl(i)));
+  solves.forEach((_, i) => solveList.appendChild(createEntryEl(i)));
 }
 
 function addRow(focusNew = true) {
   solves.push({ raw: '', penalty: null });
-  const row = createRowEl(solves.length - 1);
-  solveList.appendChild(row);
-  if (focusNew) row.querySelector('.solve-field')?.focus();
+  const entry = createEntryEl(solves.length - 1);
+  solveList.appendChild(entry);
+  if (focusNew) entry.querySelector('.solve-field')?.focus();
   recompute();
 }
 
 // ── Drag-to-reorder ───────────────────────────────────────────────────────────
-function startDrag(e, rowEl) {
+function startDrag(e, entryEl) {
   if (dragState) return;
-  const fromIdx = getRowIndex(rowEl);
-  const rect    = rowEl.getBoundingClientRect();
+  const fromIdx = getEntryIndex(entryEl.querySelector('.solve-field'));
+  const rect    = entryEl.getBoundingClientRect();
 
-  const ghost = rowEl.cloneNode(true);
+  const ghost = entryEl.cloneNode(true);
+  ghost.querySelectorAll('input').forEach(inp => {
+    inp.style.border = '1px solid var(--border)';
+    inp.style.boxShadow = 'none';
+  });
+  ghost.querySelector('.solve-error')?.remove();
   Object.assign(ghost.style, {
     position: 'fixed', margin: '0', zIndex: '1000',
     left: rect.left + 'px', top: rect.top + 'px',
     width: rect.width + 'px', height: rect.height + 'px',
-    opacity: '0.85', pointerEvents: 'none', boxSizing: 'border-box',
-    background: 'var(--surface-2)', border: '1px solid var(--accent)',
+    opacity: '0.45', pointerEvents: 'none', boxSizing: 'border-box',
+    background: 'var(--surface-2)',
     borderRadius: 'var(--radius)',
   });
   document.body.appendChild(ghost);
 
   const indicator = document.createElement('div');
-  Object.assign(indicator.style, {
-    position: 'absolute', left: '0', right: '0', height: '2px',
-    background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)',
-    borderRadius: '1px', pointerEvents: 'none', zIndex: '999', display: 'none',
-  });
+  indicator.className = 'drop-indicator';
   solveList.appendChild(indicator);
 
-  rowEl.style.opacity = '0.2';
+  entryEl.style.opacity = '0.08';
 
-  dragState = { fromIdx, rowEl, ghost, indicator,
+  dragState = { fromIdx, entryEl, ghost, indicator,
     offsetY: e.clientY - rect.top, dropIdx: fromIdx };
 
   document.addEventListener('pointermove', onDragMove, { passive: true });
@@ -323,23 +368,26 @@ function onDragMove(e) {
   const { ghost, indicator, offsetY } = dragState;
   ghost.style.top = (e.clientY - offsetY) + 'px';
 
-  const rows = [...solveList.querySelectorAll('.solve-row')];
+  const entries  = getEntries().filter(en => en !== dragState.entryEl);
   const listRect = solveList.getBoundingClientRect();
-  let dropIdx = rows.length;
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i].getBoundingClientRect();
+  let dropIdx    = solves.length;
+
+  for (let i = 0; i < entries.length; i++) {
+    const r = entries[i].getBoundingClientRect();
     if (e.clientY < r.top + r.height / 2) { dropIdx = i; break; }
+    else dropIdx = i + 1;
   }
   dragState.dropIdx = dropIdx;
 
   indicator.style.display = 'block';
-  const scrollTop = solveList.scrollTop;
-  if (dropIdx < rows.length) {
-    const r = rows[dropIdx].getBoundingClientRect();
-    indicator.style.top = (r.top - listRect.top + scrollTop - 1) + 'px';
-  } else if (rows.length > 0) {
-    const r = rows[rows.length - 1].getBoundingClientRect();
-    indicator.style.top = (r.bottom - listRect.top + scrollTop + 1) + 'px';
+  if (entries.length === 0) {
+    indicator.style.top = '0px';
+  } else if (dropIdx < entries.length) {
+    const r = entries[dropIdx].getBoundingClientRect();
+    indicator.style.top = (r.top - listRect.top - 1) + 'px';
+  } else {
+    const r = entries[entries.length - 1].getBoundingClientRect();
+    indicator.style.top = (r.bottom - listRect.top + 1) + 'px';
   }
 
   const panel = solveList.closest('.panel');
@@ -352,8 +400,8 @@ function onDragMove(e) {
 
 function onDragEnd() {
   if (!dragState) return;
-  const { fromIdx, dropIdx, rowEl, ghost, indicator } = dragState;
-  ghost.remove(); indicator.remove(); rowEl.style.opacity = '';
+  const { fromIdx, dropIdx, entryEl, ghost, indicator } = dragState;
+  ghost.remove(); indicator.remove(); entryEl.style.opacity = '';
   document.removeEventListener('pointermove', onDragMove);
   document.removeEventListener('pointerup', onDragEnd);
   dragState = null;
@@ -367,8 +415,13 @@ function onDragEnd() {
 
 // ── Compute ───────────────────────────────────────────────────────────────────
 function recompute() {
-  errMsg.textContent = '';
-  const filled = solves.filter(s => s.raw || s.penalty === 'dnf');
+  // Clear all inline errors first
+  solveList.querySelectorAll('.solve-error').forEach(el => {
+    el.textContent = ''; el.classList.remove('visible');
+  });
+
+  const entries = getEntries();
+  const filled  = solves.filter(s => s.raw || s.penalty === 'dnf');
 
   if (filled.length < 2) {
     emptyMsg.style.display = '';
@@ -378,19 +431,31 @@ function recompute() {
     return;
   }
 
-  // Any DNF → mean is DNF
-  const hasDnf = solves.some(s => s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF');
-  const labels = solves.map(s => {
+  // Validate and collect labels
+  let hasInvalid = false;
+  const labels = solves.map((s, i) => {
     if (!s.raw && s.penalty !== 'dnf') return null;
     if (s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF')
       return s.raw && s.raw.toUpperCase() !== 'DNF' ? `DNF(${s.raw})` : 'DNF';
-    if (s.penalty === 'p2') {
-      const val = toSeconds(s.raw) + 2;
-      return formatTime(val, decimalPlaces(s.raw)) + '+';
+    if (!timeRegex(s.raw)) {
+      setInlineError(entries[i], `"${s.raw}" is not a valid time`);
+      hasInvalid = true;
+      return null;
     }
+    if (s.penalty === 'p2') return formatTime(toSeconds(s.raw) + 2, decimalPlaces(s.raw)) + '+';
     return s.raw;
   }).filter(Boolean);
 
+  if (hasInvalid) {
+    emptyMsg.style.display = '';
+    emptyMsg.textContent = 'One or more solves are invalid.';
+    meanDisplay.style.display = 'none';
+    copyBtn.style.display = 'none';
+    return;
+  }
+
+  // DNF → mean is DNF
+  const hasDnf = solves.some(s => s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF');
   if (hasDnf) {
     emptyMsg.style.display = 'none';
     meanDisplay.style.display = '';
@@ -402,20 +467,15 @@ function recompute() {
     return;
   }
 
-  // Validate
-  const invalid = solves.filter(s => s.raw && !timeRegex(s.raw));
-  if (invalid.length) {
-    errMsg.textContent = `Invalid time${invalid.length > 1 ? 's' : ''}: ${invalid.map(s => s.raw).join(', ')}`;
-    return;
-  }
+  const vals = solves
+    .filter(s => s.raw)
+    .map(s => toSeconds(s.raw) + (s.penalty === 'p2' ? 2 : 0));
 
-  const vals = solves.map(s => effectiveSeconds(s)).filter(v => isFinite(v) && !isNaN(v));
   if (!vals.length) return;
 
   const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
   const dec  = Math.max(...solves.filter(s => s.raw).map(s => decimalPlaces(s.raw)));
-  const prec = Math.max(dec, 3);
-  const result = formatTime(mean, prec);
+  const result = formatTime(mean, Math.max(dec, 3));
 
   emptyMsg.style.display = 'none';
   meanDisplay.style.display = '';

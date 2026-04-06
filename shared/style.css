@@ -9,7 +9,7 @@
   --text: #f0f0f0;
   --text-muted: #909090;
   --text-dim: #b8b8b8;
-  --accent: #ffd500;
+  --accent: #ff85a1;
   --nav-h: 46px;
   --radius: 3px;
   --side-pad: 28px;
@@ -56,18 +56,36 @@ body {
 }
 .nav-inner::-webkit-scrollbar { display: none; }
 
+/* ── CAT LOGO ── */
+.nav-cat {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: opacity 0.12s;
+  text-decoration: none;
+}
+.nav-cat:hover { opacity: 1; }
+
+.nav-sep-char {
+  color: var(--border-2);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
 .nav-logo {
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;
   font-style: italic;
-  color: var(--text);
+  color: var(--accent);
   text-decoration: none;
   white-space: nowrap;
   letter-spacing: 0.01em;
   flex-shrink: 0;
 }
-.nav-logo em { color: var(--accent); font-style: italic; }
+.nav-logo em { color: var(--text); font-style: italic; }
 
 .nav-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
 
@@ -156,7 +174,6 @@ body {
 }
 
 /* ── INPUTS ── */
-/* hide number spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
@@ -199,7 +216,7 @@ select    { cursor: pointer; }
   gap: 5px;
   white-space: nowrap;
 }
-.btn-primary { background: var(--accent); color: #000; }
+.btn-primary { background: var(--accent); color: #1a0810; }
 .btn-primary:hover { filter: brightness(1.12); }
 .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover { border-color: var(--border-2); }
@@ -223,7 +240,7 @@ select    { cursor: pointer; }
   white-space: nowrap;
 }
 .pen-btn:hover { border-color: var(--border-2); color: var(--text); }
-.pen-btn.p2 { color: #ffd500; border-color: #ffd50066; background: #ffd50012; }
+.pen-btn.p2 { color: #ff85a1; border-color: #ff85a166; background: #ff85a112; }
 .pen-btn.dnf { color: #c41e3a; border-color: #c41e3a66; background: #c41e3a12; }
 
 /* ── SOLVE ROWS ── */
@@ -315,7 +332,7 @@ select    { cursor: pointer; }
   pointer-events: none;
   transition: left 0.15s, background 0.15s;
 }
-.toggle input:checked ~ .toggle-thumb { left: 19px; background: #000; }
+.toggle input:checked ~ .toggle-thumb { left: 19px; background: #1a0810; }
 
 /* ── HOMEPAGE ── */
 .hero {
@@ -343,8 +360,9 @@ select    { cursor: pointer; }
   letter-spacing: 0.01em;
   line-height: 1;
   margin-bottom: 18px;
+  color: var(--accent);
 }
-.hero-title em { color: var(--accent); font-style: italic; }
+.hero-title em { color: var(--text); font-style: normal; }
 .hero-desc { font-size: 0.95rem; color: var(--text-dim); max-width: 480px; line-height: 1.5; text-align: center; }
 
 .tool-grid {
