@@ -48,5 +48,80 @@ export function buildNav(activePath) {
              href="${base}${t.path}/">${t.label}</a>
         `).join('')}
       </div>
-    </div>`;
+      <button class="nav-about" id="aboutBtn" style="margin-left:auto">about</button>
+    </div>
+    <!-- ── ABOUT MODAL ── -->
+    <div class="modal-backdrop" id="aboutModal" role="dialog" aria-modal="true" aria-label="About">
+      <div class="modal" id="aboutModalInner">
+        <button class="modal-close" id="aboutClose" aria-label="Close">✕</button>
+        <div class="modal-body">
+          <div class="modal-content">
+            <div class="modal-eyebrow">about this website</div>
+            <div class="modal-title">Matt Mao</div>
+            <div class="modal-divider"></div>
+            <p class="modal-text">Hiiii in case you can't tell, I like cats :3 (and all fluffiness alike)</p>
+            <p class="modal-text">I'm a coober (which is why you are here, probably), but I'm also a programmer (also obvious) and ... damn i should get new hobbies i think</p>
+            <p class="modal-text">Anyways I don't bite, so if you are chill, I'd love to make some friends :3</p>
+            <div class="modal-links">
+              <a class="modal-link" target="blank" href="https://github.com/Mattttttttttttttttttttttttttttttt" data-tip="click to redirect to Github">github</a>
+              <a class="modal-link" target="blank" href="https://worldcubeassociation.org/persons/2023MAOS01" data-tip="click to redirect to WCA">wca</a>
+              <a class="modal-link" target="blank" href="https://youtube.com/@Matt-er" data-tip="click to redirect to Youtube">youtube</a>
+            </div>
+          </div>
+          <div class="modal-image-col">
+            <div class="modal-img-slot">
+              <img src="../icons/panda.jpg" alt="Mr. Panda">
+            </div>
+            <div class="modal-img-caption">say hi to Mr. Panda!!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ── LINK POPOVER ── -->
+    <div class="link-popover" id="linkPopover"></div>`;
+
+  // Wire up modal — must happen after innerHTML is set
+  const modal    = document.getElementById('aboutModal');
+  const openBtn  = document.getElementById('aboutBtn');
+  const closeBtn = document.getElementById('aboutClose');
+  const inner    = document.getElementById('aboutModalInner');
+
+  function openModal() {
+    const sw = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.paddingRight = sw + 'px';
+    nav.style.paddingRight = sw + 'px';
+    document.body.style.overflow = 'hidden';
+    modal.classList.add('open');
+  }
+  function closeModal() {
+    modal.classList.remove('open');
+    modal.addEventListener('transitionend', () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      nav.style.paddingRight = '';
+    }, { once: true });
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (!inner.contains(e.target)) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  const popover = document.getElementById('linkPopover');
+
+  document.querySelectorAll('.modal-link').forEach(link => {
+    link.addEventListener('mouseenter', () => {
+      popover.textContent = link.dataset.tip || link.textContent;
+
+      const rect = link.getBoundingClientRect();
+      popover.style.left = rect.left + 'px';
+      popover.style.top  = (rect.bottom + 8) + 'px';
+
+      popover.classList.add('show');
+    });
+
+    link.addEventListener('mouseleave', () => {
+      popover.classList.remove('show');
+    });
+  });
 }
