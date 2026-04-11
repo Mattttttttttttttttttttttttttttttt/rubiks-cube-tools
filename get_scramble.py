@@ -244,6 +244,51 @@ OBL_LEN = {
     "bad tie/tie": 4
 }
 
+NAMING = {
+    "solved": "O",
+    "1c": "D",
+    "cadj": "J",
+    "copp": "V",
+    "3c": "M",
+    "4e": "Q",
+    "3e": "W",
+    "line": "F",
+    "L": "L",
+    "1e": "E",
+
+    "left pair": "Pw",
+    "right pair": "Pc",
+    "left arrow": "Aw",
+    "right arrow": "Ac",
+    "gem": "G",
+    "left knight": "Hw",
+    "right knight": "Hc",
+    "left axe": "Xc",
+    "right axe": "Xw",
+    "squid": "S",
+    "left thumb": "THw",
+    "right thumb": "THc",
+    "left bunny": "Uc",
+    "right bunny": "Uw",
+
+    "shell": "SH",
+    "left bird": "Bc",
+    "right bird": "Bw",
+    "hazard": "Z",
+    "left kite": "Kc",
+    "right kite": "Kw",
+    "left cut": "Cw",
+    "right cut": "Cc",
+    "black T": "Tu",
+    "white T": "Td",
+    "left N": "Nw",
+    "right N": "Nc",
+    "black tie": "Iu",
+    "white tie": "Id",
+    "left yoshi": "Yc",
+    "right yoshi": "Yw"
+}
+
 def obl_name(obl: list[str]) -> str:
     """returns the name in english of this array
 
@@ -295,51 +340,53 @@ def layer_flip_name(obl: str) -> str:
         return obla[1] + "/" + obla[0]
     return obla[0] + " " + obla[2] + "/" + obla[1]
 
-OBL = {"solved": "BBbBBbBBbBBb",
+OBL = {
+    "solved": "BBbBBbBBbBBb",
 
-       "1c": "BBwWWwWWwWWw",
-       "cadj": "BBwBBwWWwWWw",
-       "copp": "BBwWWwBBwWWw",
-       "3c": "BBwBBwBBwWWw",
-       "4e": "BBwBBwBBwBBw",
-       "3e": "WWbWWbWWbWWw",
-       "line": "WWbWWwWWbWWw",
-       "L": "WWbWWbWWwWWw",
-       "1e": "WWbWWwWWwWWw",
+    "1c": "BBwWWwWWwWWw",
+    "cadj": "BBwBBwWWwWWw",
+    "copp": "BBwWWwBBwWWw",
+    "3c": "BBwBBwBBwWWw",
+    "4e": "BBwBBwBBwBBw",
+    "3e": "WWbWWbWWbWWw",
+    "line": "WWbWWwWWbWWw",
+    "L": "WWbWWbWWwWWw",
+    "1e": "WWbWWwWWwWWw",
 
-       "left pair": "WWbBBwWWwWWw",
-       "right pair": "BBbWWwWWwWWw",
-       "left arrow": "BBwWWwWWbWWw",
-       "right arrow": "BBwWWbWWwWWw",
-       "gem": "WWbBBbWWwWWw",
-       "left knight": "WWwWWbWWbBBw",
-       "right knight": "BBbWWbWWwWWw",
-       "left axe": "WWwWWbWWwBBb",
-       "right axe": "BBwWWbWWwWWb",
-       "squid": "BBwWWbWWbWWw",
-       "left thumb": "WWwWWbBBbWWb",
-       "right thumb": "WWbBBbWWwWWb",
-       "left bunny": "WWwBBbWWbWWb",
-       "right bunny": "WWbWWbBBwWWb",
+    "left pair": "WWbBBwWWwWWw",
+    "right pair": "BBbWWwWWwWWw",
+    "left arrow": "BBwWWwWWbWWw",
+    "right arrow": "BBwWWbWWwWWw",
+    "gem": "WWbBBbWWwWWw",
+    "left knight": "WWwWWbWWbBBw",
+    "right knight": "BBbWWbWWwWWw",
+    "left axe": "WWwWWbWWwBBb",
+    "right axe": "BBwWWbWWwWWb",
+    "squid": "BBwWWbWWbWWw",
+    "left thumb": "WWwWWbBBbWWb",
+    "right thumb": "WWbBBbWWwWWb",
+    "left bunny": "WWwBBbWWbWWb",
+    "right bunny": "WWbWWbBBwWWb",
 
-       "shell": "BBbBBwWWwWWw",
-       "left bird": "BBwWWwWWbBBw",
-       "right bird": "BBwBBbWWwWWw",
-       "hazard": "BBwWWbWWwBBw",
-       "left kite": "BBbBBbWWwWWw",
-       "right kite": "WWwWWbBBbBBw",
-       "left cut": "BBwBBwWWbWWb",
-       "right cut": "BBwBBbWWbWWw",
-       "black T": "BBbBBwWWbWWw",
-       "white T": "WWwWWbBBwBBb",
-       "left N": "WWbBBwWWbBBw",
-       "right N": "WWwBBbWWwBBb",
-       "black tie": "WWbBBbWWwBBw",
-       "white tie": "BBwWWwBBbWWb",
-       "left yoshi": "BBbWWwBBwWWw",
-       "right yoshi": "WWwBBwWWbBBw"
+    "shell": "BBbBBwWWwWWw",
+    "left bird": "BBwBBbWWwWWw",
+    "right bird": "BBwWWwWWbBBw",
+    "hazard": "BBwWWbWWwBBw",
+    "left kite": "BBbBBbWWwWWw",
+    "right kite": "WWwWWbBBbBBw",
+    "left cut": "BBwBBwWWbWWb",
+    "right cut": "BBwBBbWWbWWw",
+    "black T": "BBbBBwWWbWWw",
+    "white T": "WWwWWbBBwBBb",
+    "left N": "WWbBBwWWbBBw",
+    "right N": "WWwBBbWWwBBb",
+    "black tie": "WWbBBbWWwBBw",
+    "white tie": "BBwWWwBBbWWb",
+    "left yoshi": "BBbWWwBBwWWw",
+    "right yoshi": "WWwBBwWWbBBw"
 }
 # format is 24-character string, both corner first, STARTING FROM TOP RIGHT OF SLICE
+# meaning: 0-1 is the solved position. **the order is like CSP tracing.**
 CUBEL = 24
 HALF_L = 6
 LAYERL = 12
@@ -500,17 +547,45 @@ def do_moves(ms: str, s: str = "BBbBBbBBbBBbwWWwWWwWWwWW") -> str:
     Args:
         m (str): moves to do. need to start exactly at the cube state
         s (str, optional): initial cube state. Defaults to a no misalign solved cube.
-        
+
     Returns:
         str: the cube state afterwards
     """
     ml = ms.split("/")
     for m in ml:
+        m = m.strip()
         if m != "":
             [u, d] = m.split(",")
             s = move(s, int(u), int(d))
         s = do_slice(s)
     return do_slice(s) # undo the last slice
+
+def get_layer_obl(layer: str) -> str:
+    """returns the name of the obl name as per OBL dict, for one layer
+
+    Args:
+        layer (str): 12-char string w/ BbWw, in cs
+
+    Returns:
+        str: a key of OBL dict
+    """
+    for obl in OBL:
+        if is_obl(layer, obl):
+            return obl
+    raise ValueError("layer: " + layer + " is not a valid layer")
+
+def get_cube_obl(state: str) -> str:
+    """returns the name of the obl name as per OBL dict, for two layers
+
+    Args:
+        state (str): 24-char string w/ BbWw, in cs
+
+    Returns:
+        str: two keys of OBL dict
+    """
+    u = state[0:12]
+    d = state[12:]
+    return "/".join([get_layer_obl(u), get_layer_obl(d)])
 
 def is_obl(layer: str, obl: str) -> bool:
     """determines if the layer is an obl
@@ -570,7 +645,7 @@ def layer_flip(state):
 
     Args:
         state (str): the state (e.g. "BBbBBbWWwWWw")
-        
+
     Returns:
         str: the flipped state (e.g. "WWwWWwBBbBBb")
     """
@@ -590,7 +665,7 @@ def layer_flip(state):
     return "".join(return_val)
 
 def shift(a: str, amount: int) -> str:
-    """shift "ABC" to "CAB" aka cw move, assuming amount <= a.length 
+    """shift "ABC" to "CAB" aka cw move, assuming amount <= a.length
         (although if it's equal it makes no impact)
 
     Args:
@@ -706,7 +781,7 @@ def karnify(scramble: str) -> str:
     """karnifies the scramble
 
     Args:
-        scramble (str): the scramble, 
+        scramble (str): the scramble,
                     e.g. "A/-3,0/-1,2/1,-2/-1,2/3,3/-2,-2/3,3/-3,0/-1,2/3,3/3,3/-2,4/A"
 
     Returns:
@@ -714,7 +789,7 @@ def karnify(scramble: str) -> str:
     """
     # slice separator
     sep = " / " if " / " in scramble else "/" if "/" in scramble else " "
-    scramble = dict_replace(" " + scramble.replace(sep, " / ") + " ", INV_NORM).replace(",", "").strip()
+    scramble = dict_replace(" " + scramble.replace(sep, " ") + " ", INV_NORM).replace(",", "").strip()
     scramble = re.sub(r" +", " ", scramble)
     return scramble
 
@@ -727,9 +802,12 @@ def unkarnify(scramble: str) -> str:
     Returns:
         str: before karnifying, e.g. "A/-3,0/-1,2/1,-2/-1,2/3,3/-2,-2/3,3/-3,0/-1,2/3,3/3,3/-2,4/A"
     """
-    # incomplete, has to decompose moves like 6-3, which I'm too lazy to do rn.
-    return add_commas(" / ".join(
-        filter(lambda a: a,dict_replace(dict_replace(scramble, NORM), NORM).split(" "))))
+    startSlice = scramble.strip()[0] in ["/", "\\"]
+    scramble = scramble.replace("/", " ").replace("\\", " ")
+    return add_commas(
+        ("/ " if startSlice else "") +
+        " / ".join(filter(lambda a: a,dict_replace(" "+scramble+" ", NORM).split(" ")))
+    )
 
 def add_commas(scramble: str) -> str:
     """adds commas to the scramble (part of unkarnifier)
