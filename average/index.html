@@ -6,7 +6,6 @@
   <title>Average Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    /* solve-list scrolls with max-height; button sits right below it */
     .solve-list {
       position: relative;
       display: flex;
@@ -47,7 +46,6 @@
       transition: color 0.12s;
     }
     .remove-btn:hover { color: #c41e3a; }
-    /* hide X when only one solve remains */
     .remove-btn.hidden { visibility: hidden; pointer-events: none; }
 
     /* +2 state: orange-yellow */
@@ -56,14 +54,14 @@
       border-color: #d4901066;
     }
 
-    /* DNF state: accent (pink-rose), strikethrough */
+    /* DNF state: accent colour, strikethrough */
     .solve-field.dnf-state {
       color: var(--accent);
       border-color: color-mix(in srgb, var(--accent) 35%, transparent);
       text-decoration: line-through;
     }
 
-    /* DNF penalty button active: accent colour (overrides shared .pen-btn.dnf) */
+    /* DNF penalty button active: accent colour */
     .pen-btn.dnf {
       color: var(--accent) !important;
       border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
@@ -77,7 +75,6 @@
     .output-avg-str .s-trimmed { color: var(--text-muted); }
     .output-avg-str .s-fastest { color: #ffd500; font-weight: 600; }
     .output-avg-str .s-normal  { color: var(--text); }
-    /* DNF in result string also uses accent */
     .output-avg-str .s-dnf     { color: var(--accent); }
     #copyBtn { margin-top: 14px; }
 
@@ -100,7 +97,6 @@
           <div class="panel-sub">Enter solves — live output on the right</div>
         </div>
         <div id="solveList" class="solve-list"></div>
-        <!-- feedback 1: mt-16 gives a bit more breathing room -->
         <div class="mt-16">
           <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
         </div>
@@ -170,31 +166,44 @@ function setInlineError(entry, msg) {
   el.classList.toggle('visible', !!msg);
 }
 
-// ── Centralised visual state — no spurious .ok colouring ─────────────────────
-// raw always stores the original unpenalised time string.
-// Field shows a styled display value; readOnly prevents accidental edits
-// while a penalty is active (clear penalty via button or Ctrl+1 to re-edit).
-function applyFieldDisplay(field, s) {
-  field.readOnly = false;
-  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
+// ── DNF input parser ──────────────────────────────────────────────────────────
+// Returns { raw: string } if the typed value is a complete DNF pattern, else null.
+// "DNF(" alone → null (no valid time follows, as specified).
+function parseDnfInput(v) {
+  // Plain "dnf" with nothing after → DNF with no attached time
+  if (/^dnf$/i.test(v.trim())) return { raw: '' };
+  // "dnf" + optional whitespace + optional "(" + valid time + optional ")"
+  // Requires ≥1 digit after the prefix — bare "dnf(" won't match
+  const m = v.match(/^dnf\s*\(?([\d:.]+)\)?$/i);
+  if (m && timeRegex(m[1])) return { raw: m[1] };
+  return null;
+}
 
+// ── Visual state ──────────────────────────────────────────────────────────────
+// applyFieldDisplay: used on init / rebuild / penalty-button / Ctrl+2/3.
+// Sets the canonical field value for the current penalty state. Never readOnly.
+function applyFieldDisplay(field, s) {
+  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
   if (s.penalty === 'p2' && s.raw) {
-    // show time+2 with "+" suffix in orange-yellow
-    field.value = seconds(String(minutes(s.raw) + 2)) + '+';
+    field.value = s.raw + '+';           // show "2.30+" so user can keep editing
     field.classList.add('p2-state');
-    field.readOnly = true;
   } else if (s.penalty === 'dnf') {
-    // show DNF(raw) in accent colour with strikethrough
     field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
     field.classList.add('dnf-state');
-    field.readOnly = true;
   } else {
-    field.value = s.raw;
-    // deliberately no ok/err border styling — avoids spurious green after drag
+    field.value = s.raw || '';
   }
 }
 
-// ── Show/hide remove buttons based on solve count ─────────────────────────────
+// applyPenaltyClass: used inside the input handler — restyles without
+// touching field.value so the cursor/selection is preserved.
+function applyPenaltyClass(field, penalty) {
+  field.classList.remove('p2-state', 'dnf-state');
+  if (penalty === 'p2')  field.classList.add('p2-state');
+  if (penalty === 'dnf') field.classList.add('dnf-state');
+}
+
+// ── Show/hide remove buttons ──────────────────────────────────────────────────
 function updateRemoveBtns() {
   const single = solves.length <= 1;
   solveList.querySelectorAll('.remove-btn').forEach(btn => {
@@ -230,41 +239,42 @@ function createEntryEl(idx) {
   field.type = 'text';
   field.className = 'solve-field';
   field.placeholder = '0.00';
-  applyFieldDisplay(field, s); // sets value + classes correctly
+  applyFieldDisplay(field, s);
   fieldWrap.appendChild(field);
 
   field.addEventListener('input', () => {
-    if (field.readOnly) return; // penalty active — ignore programmatic changes
     const ri = getEntryIndex(field);
     if (ri === -1) return;
     const v = field.value;
 
-    // Shortcut: "dnf" or "dnf(" → DNF flag
-    if (/^dnf\(?$/i.test(v)) {
+    // DNF pattern — "DNF(" alone returns null, so won't trigger here
+    const dnfResult = parseDnfInput(v);
+    if (dnfResult !== null) {
+      solves[ri].raw     = dnfResult.raw;
       solves[ri].penalty = 'dnf';
-      applyFieldDisplay(field, solves[ri]);
+      applyPenaltyClass(field, 'dnf');
       updatePenBtns(entry, 'dnf');
       recompute();
       return;
     }
 
-    // Shortcut: ends with "+" → +2 flag
-    // Store the ORIGINAL typed time as raw so display can show time+2
+    // +2 pattern: ends with "+" and the part before is a valid time
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        solves[ri].raw     = base; // e.g. "2.30" — not base-2
+        solves[ri].raw     = base;
         solves[ri].penalty = 'p2';
-        applyFieldDisplay(field, solves[ri]); // shows "4.30+" in orange
+        applyPenaltyClass(field, 'p2');
         updatePenBtns(entry, 'p2');
         recompute();
         return;
       }
     }
 
-    // Plain typing — clear any leftover penalty
+    // Plain value — clear any penalty
     solves[ri].raw     = v.trim();
     solves[ri].penalty = null;
+    applyPenaltyClass(field, null);
     updatePenBtns(entry, null);
     recompute();
   });
@@ -272,9 +282,9 @@ function createEntryEl(idx) {
   field.addEventListener('keydown', e => {
     const ri = getEntryIndex(field);
 
-    // Delete/Backspace on an empty non-readonly field removes the row
+    // Delete/Backspace on an empty field removes the row (if more than one)
     if ((e.key === 'Delete' || e.key === 'Backspace') &&
-        !field.readOnly && field.value === '' && solves.length > 1) {
+        field.value === '' && solves.length > 1) {
       e.preventDefault();
       const fields = getAllFields();
       const focusTarget = fields[ri - 1] || fields[ri + 1];
@@ -340,6 +350,9 @@ function createEntryEl(idx) {
     btn.addEventListener('click', () => {
       const ri = getEntryIndex(field);
       if (ri === -1) return;
+      // Capture a plain time from the field if it's currently showing one
+      const cur = field.value.trim();
+      if (timeRegex(cur)) solves[ri].raw = cur;
       solves[ri].penalty = solves[ri].penalty === type ? null : type;
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
@@ -349,7 +362,7 @@ function createEntryEl(idx) {
   }
   penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
 
-  // Remove button — hidden when only one solve remains
+  // Remove button
   const rm = document.createElement('button');
   rm.className = 'remove-btn';
   rm.textContent = '×';
@@ -399,7 +412,6 @@ function startDrag(e, entryEl) {
   const rect    = entryEl.getBoundingClientRect();
 
   const ghost = entryEl.cloneNode(true);
-  // Strip all penalty colours from ghost inputs
   ghost.querySelectorAll('input').forEach(inp => {
     inp.style.border = '1px solid var(--border)';
     inp.style.boxShadow = 'none';
@@ -476,7 +488,6 @@ function onDragEnd() {
   if (dropIdx === fromIdx || dropIdx === fromIdx + 1) return;
   const [moved] = solves.splice(fromIdx, 1);
   solves.splice(dropIdx > fromIdx ? dropIdx - 1 : dropIdx, 0, moved);
-  // rebuildRows uses applyFieldDisplay — no spurious .ok after drag
   rebuildRows();
   recompute();
 }
@@ -495,11 +506,10 @@ function recompute() {
 
   const entries = getEntries();
 
-  // Validate all solves (for inline errors); skip truly empty fields
   let hasInvalid = false;
   const formatted = solves.map((s, i) => {
     const raw = (s.raw || '').trim();
-    if (!raw && s.penalty !== 'dnf') return null; // empty → ignore
+    if (!raw && s.penalty !== 'dnf') return null;
     if (raw.toUpperCase() === 'DNF' || s.penalty === 'dnf')
       return raw && raw.toUpperCase() !== 'DNF' ? `DNF(${raw})` : 'DNF';
     if (!timeRegex(raw)) {
@@ -510,7 +520,6 @@ function recompute() {
     return renderSolveString(raw, s.penalty);
   });
 
-  // Only count non-empty solves
   const filled = formatted.filter(f => f !== null);
 
   if (hasInvalid) {
@@ -560,11 +569,38 @@ function recompute() {
   }
 }
 
-copyBtn.addEventListener('click', () => {
+// ── Copy ──────────────────────────────────────────────────────────────────────
+const COPY_FLASH_COLOR = '#4a9e6b';
+
+function triggerCopy() {
+  if (copyBtn.style.display === 'none') return;
   navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
   const old = copyBtn.textContent;
   copyBtn.textContent = 'Copied!';
-  setTimeout(() => copyBtn.textContent = old, 1500);
+  copyBtn.style.color = COPY_FLASH_COLOR;
+  copyBtn.style.borderColor = COPY_FLASH_COLOR;
+  setTimeout(() => {
+    copyBtn.textContent = old;
+    copyBtn.style.color = '';
+    copyBtn.style.borderColor = '';
+  }, 1500);
+}
+
+copyBtn.addEventListener('click', triggerCopy);
+
+// Ctrl+C → copy result when nothing is selected
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c') return;
+  if (copyBtn.style.display === 'none') return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    triggerCopy();
+  }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

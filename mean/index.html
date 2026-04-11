@@ -5,13 +5,11 @@
   <title>Mean Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    /* FIX 8: solve-list no longer flex-grows; button sits right below it */
     .solve-list {
       position: relative;
       display: flex;
       flex-direction: column;
       gap: 7px;
-      /* override shared flex:1 so the list doesn't swallow the whole panel */
       flex: none;
       max-height: calc(100vh - var(--nav-h) - 170px);
       overflow-y: auto;
@@ -47,16 +45,15 @@
       transition: color 0.12s;
     }
     .remove-btn:hover { color: #c41e3a; }
-    /* FIX 6: hide X when only one solve remains */
     .remove-btn.hidden { visibility: hidden; pointer-events: none; }
 
-    /* FIX 2: +2 state — orange-yellow tint */
+    /* +2 state: orange-yellow */
     .solve-field.p2-state {
       color: #d49010;
       border-color: #d4901066;
     }
 
-
+    /* DNF state: accent colour, strikethrough */
     .solve-field.dnf-state {
       color: var(--accent);
       border-color: color-mix(in srgb, var(--accent) 35%, transparent);
@@ -94,7 +91,6 @@
         <div class="panel-title"><span class="dot"></span>Mean Generator</div>
         <div class="panel-sub">Enter solves — live output on the right</div>
       </div>
-      <!-- FIX 8: button is right after solve-list, not pinned to panel bottom -->
       <div id="solveList" class="solve-list"></div>
       <div class="mt-16">
         <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
@@ -139,9 +135,9 @@ const copyBtn     = document.getElementById('copyBtn');
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-const timeRegex    = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
-const getEntries   = () => [...solveList.querySelectorAll('.solve-entry')];
-const getAllFields  = () => [...solveList.querySelectorAll('.solve-field')];
+const timeRegex     = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getEntries    = () => [...solveList.querySelectorAll('.solve-entry')];
+const getAllFields   = () => [...solveList.querySelectorAll('.solve-field')];
 const getEntryIndex = el => getEntries().indexOf(el.closest('.solve-entry'));
 
 function decimalPlaces(v) {
@@ -188,32 +184,43 @@ function setInlineError(entry, msg) {
   el.classList.toggle('visible', !!msg);
 }
 
-// ── FIX 1 / 2 / 3 / 4: centralised visual state for a field ─────────────────
-// raw is always the original unpenalised time string.
-// The field shows a styled display value; field.readOnly prevents accidental
-// edits while a penalty is active (clear penalty to re-edit).
-function applyFieldDisplay(field, s) {
-  field.readOnly = false;
-  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
+// ── DNF input parser ──────────────────────────────────────────────────────────
+// Returns { raw: string } if the typed value is a complete DNF pattern, else null.
+// "DNF(" alone → null (no valid time follows, as specified).
+function parseDnfInput(v) {
+  // Plain "dnf" with nothing after → DNF with no attached time
+  if (/^dnf$/i.test(v.trim())) return { raw: '' };
+  // "dnf" + optional whitespace + optional "(" + valid time + optional ")"
+  // Requires ≥1 digit after the prefix — bare "dnf(" won't match
+  const m = v.match(/^dnf\s*\(?([\d:.]+)\)?$/i);
+  if (m && timeRegex(m[1])) return { raw: m[1] };
+  return null;
+}
 
+// ── Visual state ──────────────────────────────────────────────────────────────
+// applyFieldDisplay: used on init / rebuild / penalty-button / Ctrl+2/3.
+// Sets the canonical field value for the current penalty state. Never readOnly.
+function applyFieldDisplay(field, s) {
+  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
   if (s.penalty === 'p2' && s.raw) {
-    // FIX 2: show time+2 with "+" suffix in orange-yellow
-    const dec = decimalPlaces(s.raw);
-    field.value = formatTime(toSeconds(s.raw) + 2, dec) + '+';
+    field.value = s.raw + '+';           // show "2.30+" so user can keep editing
     field.classList.add('p2-state');
-    field.readOnly = true;
   } else if (s.penalty === 'dnf') {
-    // FIX 3: show DNF(raw) in bright red with strikethrough
     field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
     field.classList.add('dnf-state');
-    field.readOnly = true;
   } else {
-    // Normal editable field — no ok/err border colouring (FIX 1)
-    field.value = s.raw;
+    field.value = s.raw || '';
   }
 }
 
-// ── FIX 6: show/hide all remove buttons when count changes ───────────────────
+// applyPenaltyClass: restyles without touching field.value (preserves cursor).
+function applyPenaltyClass(field, penalty) {
+  field.classList.remove('p2-state', 'dnf-state');
+  if (penalty === 'p2')  field.classList.add('p2-state');
+  if (penalty === 'dnf') field.classList.add('dnf-state');
+}
+
+// ── Show/hide remove buttons ──────────────────────────────────────────────────
 function updateRemoveBtns() {
   const single = solves.length <= 1;
   solveList.querySelectorAll('.remove-btn').forEach(btn => {
@@ -249,44 +256,42 @@ function createEntryEl(idx) {
   field.type = 'text';
   field.className = 'solve-field';
   field.placeholder = '0.00';
-  // FIX 1 / 4: use applyFieldDisplay for initial state (no spurious .ok colouring)
   applyFieldDisplay(field, s);
   fieldWrap.appendChild(field);
 
   field.addEventListener('input', () => {
-    // readOnly fields don't fire 'input' from the user, but guard anyway
-    if (field.readOnly) return;
     const ri = getEntryIndex(field);
     if (ri === -1) return;
     const v = field.value;
 
-    // Shortcut: "dnf" or "dnf(" → DNF flag
-    if (/^dnf\(?$/i.test(v)) {
+    // DNF pattern — "DNF(" alone returns null, so won't trigger here
+    const dnfResult = parseDnfInput(v);
+    if (dnfResult !== null) {
+      solves[ri].raw     = dnfResult.raw;
       solves[ri].penalty = 'dnf';
-      // keep existing raw so DNF(time) can display if raw was already set
-      applyFieldDisplay(field, solves[ri]);
+      applyPenaltyClass(field, 'dnf');
       updatePenBtns(entry, 'dnf');
       recompute();
       return;
     }
 
-    // FIX 4: shortcut ends with "+" → +2 flag
-    // Store the ORIGINAL time as raw (not original-2) so display shows time+2
+    // +2 pattern: ends with "+" and the part before is a valid time
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        solves[ri].raw     = base;   // original time e.g. "2.30"
+        solves[ri].raw     = base;
         solves[ri].penalty = 'p2';
-        applyFieldDisplay(field, solves[ri]); // shows "4.30+" in orange
+        applyPenaltyClass(field, 'p2');
         updatePenBtns(entry, 'p2');
         recompute();
         return;
       }
     }
 
-    // Plain typing — clear any leftover penalty
+    // Plain value — clear any penalty
     solves[ri].raw     = v.trim();
     solves[ri].penalty = null;
+    applyPenaltyClass(field, null);
     updatePenBtns(entry, null);
     recompute();
   });
@@ -294,9 +299,9 @@ function createEntryEl(idx) {
   field.addEventListener('keydown', e => {
     const ri = getEntryIndex(field);
 
-    // FIX 5 / 6: Delete/Backspace on an empty (non-readonly) field removes the row
+    // Delete/Backspace on an empty field removes the row (if more than one)
     if ((e.key === 'Delete' || e.key === 'Backspace') &&
-        !field.readOnly && field.value === '' && solves.length > 1) {
+        field.value === '' && solves.length > 1) {
       e.preventDefault();
       const fields = getAllFields();
       const focusTarget = fields[ri - 1] || fields[ri + 1];
@@ -362,6 +367,9 @@ function createEntryEl(idx) {
     btn.addEventListener('click', () => {
       const ri = getEntryIndex(field);
       if (ri === -1) return;
+      // Capture a plain time from the field if it's currently showing one
+      const cur = field.value.trim();
+      if (timeRegex(cur)) solves[ri].raw = cur;
       solves[ri].penalty = solves[ri].penalty === type ? null : type;
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
@@ -371,13 +379,13 @@ function createEntryEl(idx) {
   }
   penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
 
-  // Remove button — hidden when only one solve remains (FIX 6)
+  // Remove button
   const rm = document.createElement('button');
   rm.className = 'remove-btn';
   rm.textContent = '×';
   rm.title = 'Remove solve';
   rm.addEventListener('click', () => {
-    if (solves.length <= 1) return; // safety guard (FIX 6)
+    if (solves.length <= 1) return;
     const ri = getEntryIndex(field);
     if (ri === -1) return;
     const fields = getAllFields();
@@ -402,14 +410,14 @@ function createEntryEl(idx) {
 function rebuildRows() {
   solveList.innerHTML = '';
   solves.forEach((_, i) => solveList.appendChild(createEntryEl(i)));
-  updateRemoveBtns(); // FIX 6: refresh button visibility after rebuild
+  updateRemoveBtns();
 }
 
 function addRow(focusNew = true) {
   solves.push({ raw: '', penalty: null });
   const entry = createEntryEl(solves.length - 1);
   solveList.appendChild(entry);
-  updateRemoveBtns(); // FIX 6
+  updateRemoveBtns();
   if (focusNew) entry.querySelector('.solve-field')?.focus();
   recompute();
 }
@@ -421,7 +429,6 @@ function startDrag(e, entryEl) {
   const rect    = entryEl.getBoundingClientRect();
 
   const ghost = entryEl.cloneNode(true);
-  // FIX 1: strip ok/err/p2/dnf classes from ghost inputs so no coloured flash
   ghost.querySelectorAll('input').forEach(inp => {
     inp.style.border = '1px solid var(--border)';
     inp.style.boxShadow = 'none';
@@ -498,7 +505,6 @@ function onDragEnd() {
   if (dropIdx === fromIdx || dropIdx === fromIdx + 1) return;
   const [moved] = solves.splice(fromIdx, 1);
   solves.splice(dropIdx > fromIdx ? dropIdx - 1 : dropIdx, 0, moved);
-  // FIX 1: rebuildRows calls applyFieldDisplay which never adds spurious .ok
   rebuildRows();
   recompute();
 }
@@ -511,7 +517,6 @@ function recompute() {
 
   const entries = getEntries();
 
-  // FIX 7: only count solves that actually have content
   const filled = solves.filter(s => (s.raw || '').trim() || s.penalty === 'dnf');
 
   if (filled.length < 2) {
@@ -524,11 +529,10 @@ function recompute() {
     return;
   }
 
-  // Validate and collect labels — FIX 7: skip empty fields entirely
   let hasInvalid = false;
   const labels = solves.map((s, i) => {
     const raw = (s.raw || '').trim();
-    if (!raw && s.penalty !== 'dnf') return null; // FIX 7: skip empties
+    if (!raw && s.penalty !== 'dnf') return null;
 
     if (s.penalty === 'dnf' || raw.toUpperCase() === 'DNF')
       return raw && raw.toUpperCase() !== 'DNF' ? `DNF(${raw})` : 'DNF';
@@ -538,7 +542,6 @@ function recompute() {
       hasInvalid = true;
       return null;
     }
-    // FIX 2: label shows time+2 with "+"
     if (s.penalty === 'p2') return formatTime(toSeconds(raw) + 2, decimalPlaces(raw)) + '+';
     return raw;
   }).filter(Boolean);
@@ -555,7 +558,7 @@ function recompute() {
   if (hasDnf) {
     emptyMsg.style.display = 'none';
     meanDisplay.style.display = '';
-    meanValue.style.color = '#c41e3a';
+    meanValue.style.color = 'var(--accent)';
     meanValue.textContent = 'DNF';
     meanStr.innerHTML = `<span style="color:var(--text-muted)">${labels.join(', ')}</span>`;
     copyBtn.dataset.result = `DNF = ${labels.join(', ')}`;
@@ -563,7 +566,6 @@ function recompute() {
     return;
   }
 
-  // FIX 7: filter out empty solves before computing mean
   const vals = solves
     .filter(s => (s.raw || '').trim())
     .map(s => toSeconds(s.raw) + (s.penalty === 'p2' ? 2 : 0));
@@ -583,11 +585,38 @@ function recompute() {
   copyBtn.style.display = '';
 }
 
-copyBtn.addEventListener('click', () => {
+// ── Copy ──────────────────────────────────────────────────────────────────────
+const COPY_FLASH_COLOR = '#4a9e6b';
+
+function triggerCopy() {
+  if (copyBtn.style.display === 'none') return;
   navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
   const old = copyBtn.textContent;
   copyBtn.textContent = 'Copied!';
-  setTimeout(() => copyBtn.textContent = old, 1500);
+  copyBtn.style.color = COPY_FLASH_COLOR;
+  copyBtn.style.borderColor = COPY_FLASH_COLOR;
+  setTimeout(() => {
+    copyBtn.textContent = old;
+    copyBtn.style.color = '';
+    copyBtn.style.borderColor = '';
+  }, 1500);
+}
+
+copyBtn.addEventListener('click', triggerCopy);
+
+// Ctrl+C → copy result when nothing is selected
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c') return;
+  if (copyBtn.style.display === 'none') return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    triggerCopy();
+  }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
