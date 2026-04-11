@@ -59,7 +59,6 @@ body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-ui);
-    min-height: 100vh;
     overflow-x: hidden;
 }
 
@@ -441,7 +440,6 @@ body {
 /* ── PAGE ── */
 .page {
     margin-top: var(--nav-h);
-    min-height: calc(100vh - var(--nav-h));
 }
 
 @media (min-width: 900px) {

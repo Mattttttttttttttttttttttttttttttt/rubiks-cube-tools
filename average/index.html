@@ -6,13 +6,21 @@
   <title>Average Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .solve-list { position: relative; display: flex; flex-direction: column; gap: 7px; }
+    /* solve-list scrolls with max-height; button sits right below it */
+    .solve-list {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: none;
+      max-height: calc(100vh - var(--nav-h) - 170px);
+      overflow-y: auto;
+    }
 
-    /* Each entry is a column: the row + optional error line */
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
     .solve-error {
       font-family: var(--font-mono); font-size: 0.65rem;
-      color: #c41e3a; padding-left: 106px; /* align under the input */
+      color: #c41e3a; padding-left: 106px;
       display: none;
     }
     .solve-error.visible { display: block; }
@@ -36,8 +44,31 @@
       background: none; border: none; color: var(--text-muted);
       cursor: pointer; font-size: 1rem; padding: 2px 6px;
       line-height: 1; flex-shrink: 0;
+      transition: color 0.12s;
     }
     .remove-btn:hover { color: #c41e3a; }
+    /* hide X when only one solve remains */
+    .remove-btn.hidden { visibility: hidden; pointer-events: none; }
+
+    /* +2 state: orange-yellow */
+    .solve-field.p2-state {
+      color: #d49010;
+      border-color: #d4901066;
+    }
+
+    /* DNF state: accent (pink-rose), strikethrough */
+    .solve-field.dnf-state {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+      text-decoration: line-through;
+    }
+
+    /* DNF penalty button active: accent colour (overrides shared .pen-btn.dnf) */
+    .pen-btn.dnf {
+      color: var(--accent) !important;
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+      background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+    }
 
     .output-avg-str {
       font-family: var(--font-mono); font-size: 0.8rem;
@@ -46,10 +77,10 @@
     .output-avg-str .s-trimmed { color: var(--text-muted); }
     .output-avg-str .s-fastest { color: #ffd500; font-weight: 600; }
     .output-avg-str .s-normal  { color: var(--text); }
-    .output-avg-str .s-dnf     { color: #c41e3a; }
+    /* DNF in result string also uses accent */
+    .output-avg-str .s-dnf     { color: var(--accent); }
     #copyBtn { margin-top: 14px; }
 
-    /* Drop indicator */
     .drop-indicator {
       position: absolute; left: 0; right: 0; height: 2px;
       background: var(--accent); box-shadow: 0 0 8px var(--accent);
@@ -69,7 +100,8 @@
           <div class="panel-sub">Enter solves — live output on the right</div>
         </div>
         <div id="solveList" class="solve-list"></div>
-        <div class="mt-8">
+        <!-- feedback 1: mt-16 gives a bit more breathing room -->
+        <div class="mt-16">
           <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
         </div>
         <div class="divider"></div>
@@ -99,7 +131,7 @@ import { minutes, seconds, avgStr } from '../shared/helpers.js';
 buildNav('average');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let solves    = []; // { raw, penalty: null|'p2'|'dnf' }
+let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
 let dragState = null;
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
@@ -113,9 +145,9 @@ const copyBtn    = document.getElementById('copyBtn');
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-const timeRegex   = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
-const getEntries  = () => [...solveList.querySelectorAll('.solve-entry')];
-const getAllFields = () => [...solveList.querySelectorAll('.solve-field')];
+const timeRegex     = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getEntries    = () => [...solveList.querySelectorAll('.solve-entry')];
+const getAllFields   = () => [...solveList.querySelectorAll('.solve-field')];
 const getEntryIndex = el => getEntries().indexOf(el.closest('.solve-entry'));
 
 function renumberRows() {
@@ -136,6 +168,38 @@ function setInlineError(entry, msg) {
   if (!el) return;
   el.textContent = msg;
   el.classList.toggle('visible', !!msg);
+}
+
+// ── Centralised visual state — no spurious .ok colouring ─────────────────────
+// raw always stores the original unpenalised time string.
+// Field shows a styled display value; readOnly prevents accidental edits
+// while a penalty is active (clear penalty via button or Ctrl+1 to re-edit).
+function applyFieldDisplay(field, s) {
+  field.readOnly = false;
+  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
+
+  if (s.penalty === 'p2' && s.raw) {
+    // show time+2 with "+" suffix in orange-yellow
+    field.value = seconds(String(minutes(s.raw) + 2)) + '+';
+    field.classList.add('p2-state');
+    field.readOnly = true;
+  } else if (s.penalty === 'dnf') {
+    // show DNF(raw) in accent colour with strikethrough
+    field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
+    field.classList.add('dnf-state');
+    field.readOnly = true;
+  } else {
+    field.value = s.raw;
+    // deliberately no ok/err border styling — avoids spurious green after drag
+  }
+}
+
+// ── Show/hide remove buttons based on solve count ─────────────────────────────
+function updateRemoveBtns() {
+  const single = solves.length <= 1;
+  solveList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.classList.toggle('hidden', single);
+  });
 }
 
 // ── Row creation ──────────────────────────────────────────────────────────────
@@ -166,59 +230,69 @@ function createEntryEl(idx) {
   field.type = 'text';
   field.className = 'solve-field';
   field.placeholder = '0.00';
-  field.value = s.raw;
-  if (s.penalty === 'dnf') field.classList.add('dnf-state');
-  else if (s.raw) field.classList.add('ok');
+  applyFieldDisplay(field, s); // sets value + classes correctly
   fieldWrap.appendChild(field);
 
   field.addEventListener('input', () => {
+    if (field.readOnly) return; // penalty active — ignore programmatic changes
     const ri = getEntryIndex(field);
     if (ri === -1) return;
     const v = field.value;
 
-    // Shortcut: "dnf(" → DNF flag
-    if (/^dnf\($/i.test(v)) {
-      field.value = '';
-      solves[ri].raw = '';
+    // Shortcut: "dnf" or "dnf(" → DNF flag
+    if (/^dnf\(?$/i.test(v)) {
       solves[ri].penalty = 'dnf';
-      field.classList.add('dnf-state');
-      field.classList.remove('err', 'ok');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, 'dnf');
       recompute();
       return;
     }
 
     // Shortcut: ends with "+" → +2 flag
+    // Store the ORIGINAL typed time as raw so display can show time+2
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        const rawSecs = minutes(base) - 2;
-        if (rawSecs >= 0) {
-          field.value = seconds(String(rawSecs));
-          solves[ri].raw = field.value;
-          solves[ri].penalty = 'p2';
-          field.classList.remove('err', 'dnf-state');
-          field.classList.add('ok');
-          updatePenBtns(entry, 'p2');
-          recompute();
-          return;
-        }
+        solves[ri].raw     = base; // e.g. "2.30" — not base-2
+        solves[ri].penalty = 'p2';
+        applyFieldDisplay(field, solves[ri]); // shows "4.30+" in orange
+        updatePenBtns(entry, 'p2');
+        recompute();
+        return;
       }
     }
 
-    solves[ri].raw = v.trim();
+    // Plain typing — clear any leftover penalty
+    solves[ri].raw     = v.trim();
+    solves[ri].penalty = null;
+    updatePenBtns(entry, null);
     recompute();
   });
 
   field.addEventListener('keydown', e => {
     const ri = getEntryIndex(field);
 
+    // Delete/Backspace on an empty non-readonly field removes the row
+    if ((e.key === 'Delete' || e.key === 'Backspace') &&
+        !field.readOnly && field.value === '' && solves.length > 1) {
+      e.preventDefault();
+      const fields = getAllFields();
+      const focusTarget = fields[ri - 1] || fields[ri + 1];
+      solves.splice(ri, 1);
+      entry.remove();
+      renumberRows();
+      updateRemoveBtns();
+      recompute();
+      focusTarget?.focus();
+      return;
+    }
+
     // Ctrl+1 → clear penalty
     if (e.ctrlKey && e.key === '1') {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = null;
-      field.classList.remove('dnf-state');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, null);
       recompute();
       return;
@@ -228,7 +302,7 @@ function createEntryEl(idx) {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === 'p2' ? null : 'p2';
-      field.classList.remove('dnf-state');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
       return;
@@ -238,7 +312,7 @@ function createEntryEl(idx) {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === 'dnf' ? null : 'dnf';
-      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
       return;
@@ -267,7 +341,7 @@ function createEntryEl(idx) {
       const ri = getEntryIndex(field);
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === type ? null : type;
-      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
     });
@@ -275,22 +349,27 @@ function createEntryEl(idx) {
   }
   penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
 
-  // Remove
+  // Remove button — hidden when only one solve remains
   const rm = document.createElement('button');
   rm.className = 'remove-btn';
   rm.textContent = '×';
+  rm.title = 'Remove solve';
   rm.addEventListener('click', () => {
+    if (solves.length <= 1) return;
     const ri = getEntryIndex(field);
     if (ri === -1) return;
+    const fields = getAllFields();
+    const focusTarget = fields[ri - 1] || fields[ri + 1];
     solves.splice(ri, 1);
     entry.remove();
     renumberRows();
+    updateRemoveBtns();
     recompute();
+    focusTarget?.focus();
   });
 
   row.append(handle, num, fieldWrap, penaltyWrap, rm);
 
-  // Inline error line
   const errLine = document.createElement('div');
   errLine.className = 'solve-error';
 
@@ -301,12 +380,14 @@ function createEntryEl(idx) {
 function rebuildRows() {
   solveList.innerHTML = '';
   solves.forEach((_, i) => solveList.appendChild(createEntryEl(i)));
+  updateRemoveBtns();
 }
 
 function addRow(focusNew = true) {
   solves.push({ raw: '', penalty: null });
   const entry = createEntryEl(solves.length - 1);
   solveList.appendChild(entry);
+  updateRemoveBtns();
   if (focusNew) entry.querySelector('.solve-field')?.focus();
   recompute();
 }
@@ -317,12 +398,13 @@ function startDrag(e, entryEl) {
   const fromIdx = getEntryIndex(entryEl.querySelector('.solve-field'));
   const rect    = entryEl.getBoundingClientRect();
 
-  // Faint ghost that follows cursor
   const ghost = entryEl.cloneNode(true);
-  // Neutralize any input styling inside ghost
+  // Strip all penalty colours from ghost inputs
   ghost.querySelectorAll('input').forEach(inp => {
     inp.style.border = '1px solid var(--border)';
     inp.style.boxShadow = 'none';
+    inp.style.color = 'var(--text)';
+    inp.style.textDecoration = 'none';
   });
   ghost.querySelector('.solve-error')?.remove();
   Object.assign(ghost.style, {
@@ -335,12 +417,10 @@ function startDrag(e, entryEl) {
   });
   document.body.appendChild(ghost);
 
-  // Drop indicator line — lives in solveList so position:absolute works
   const indicator = document.createElement('div');
   indicator.className = 'drop-indicator';
   solveList.appendChild(indicator);
 
-  // Make the original very transparent
   entryEl.style.opacity = '0.08';
 
   dragState = { fromIdx, entryEl, ghost, indicator,
@@ -355,9 +435,9 @@ function onDragMove(e) {
   const { ghost, indicator, offsetY } = dragState;
   ghost.style.top = (e.clientY - offsetY) + 'px';
 
-  const entries   = getEntries().filter(en => en !== dragState.entryEl);
-  const listRect  = solveList.getBoundingClientRect();
-  let dropIdx     = solves.length;
+  const entries  = getEntries().filter(en => en !== dragState.entryEl);
+  const listRect = solveList.getBoundingClientRect();
+  let dropIdx    = solves.length;
 
   for (let i = 0; i < entries.length; i++) {
     const r = entries[i].getBoundingClientRect();
@@ -366,7 +446,6 @@ function onDragMove(e) {
   }
   dragState.dropIdx = dropIdx;
 
-  // Position indicator relative to solveList (no scrollTop — panel scrolls, not list)
   indicator.style.display = 'block';
   if (entries.length === 0) {
     indicator.style.top = '0px';
@@ -378,7 +457,6 @@ function onDragMove(e) {
     indicator.style.top = (r.bottom - listRect.top + 1) + 'px';
   }
 
-  // Auto-scroll the panel
   const panel = solveList.closest('.panel');
   if (panel) {
     const pr = panel.getBoundingClientRect();
@@ -398,6 +476,7 @@ function onDragEnd() {
   if (dropIdx === fromIdx || dropIdx === fromIdx + 1) return;
   const [moved] = solves.splice(fromIdx, 1);
   solves.splice(dropIdx > fromIdx ? dropIdx - 1 : dropIdx, 0, moved);
+  // rebuildRows uses applyFieldDisplay — no spurious .ok after drag
   rebuildRows();
   recompute();
 }
@@ -410,28 +489,28 @@ function renderSolveString(raw, penalty) {
 }
 
 function recompute() {
-  // Clear all inline errors
   solveList.querySelectorAll('.solve-error').forEach(el => {
     el.textContent = ''; el.classList.remove('visible');
   });
 
-  const numSolves = solves.length;
-  const entries   = getEntries();
+  const entries = getEntries();
 
-  // Validate each solve and collect formatted strings
+  // Validate all solves (for inline errors); skip truly empty fields
   let hasInvalid = false;
   const formatted = solves.map((s, i) => {
-    if (!s.raw && s.penalty !== 'dnf') return null;
-    if (s.raw?.toUpperCase() === 'DNF' || s.penalty === 'dnf')
-      return s.raw && s.raw.toUpperCase() !== 'DNF' ? `DNF(${s.raw})` : 'DNF';
-    if (!timeRegex(s.raw)) {
-      setInlineError(entries[i], `"${s.raw}" is not a valid time`);
+    const raw = (s.raw || '').trim();
+    if (!raw && s.penalty !== 'dnf') return null; // empty → ignore
+    if (raw.toUpperCase() === 'DNF' || s.penalty === 'dnf')
+      return raw && raw.toUpperCase() !== 'DNF' ? `DNF(${raw})` : 'DNF';
+    if (!timeRegex(raw)) {
+      setInlineError(entries[i], `"${raw}" is not a valid time`);
       hasInvalid = true;
       return null;
     }
-    return renderSolveString(s.raw, s.penalty);
+    return renderSolveString(raw, s.penalty);
   });
 
+  // Only count non-empty solves
   const filled = formatted.filter(f => f !== null);
 
   if (hasInvalid) {
@@ -442,19 +521,19 @@ function recompute() {
     return;
   }
 
-  if (filled.length < numSolves || filled.length < 3) {
+  if (filled.length < 3) {
     emptyMsg.style.display = '';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
-    const remaining = numSolves - filled.length;
-    emptyMsg.textContent = filled.length >= 1 && remaining > 0
-      ? `${remaining} more solve${remaining !== 1 ? 's' : ''} needed`
+    const needed = 3 - filled.length;
+    emptyMsg.textContent = filled.length >= 1
+      ? `${needed} more solve${needed !== 1 ? 's' : ''} needed`
       : 'Add at least 3 solves to see the average.';
     return;
   }
 
   try {
-    const result = avgStr(numSolves, formatted);
+    const result = avgStr(filled.length, filled);
     emptyMsg.style.display = 'none';
     avgDisplay.style.display = '';
     avgValue.textContent = result.avg;
@@ -473,10 +552,11 @@ function recompute() {
     avgStrEl.innerHTML = result.avg + ' = ' + parts.join(', ');
     copyBtn.style.display = '';
     copyBtn.dataset.result = result.avg + ' = ' + result.solves.join(', ');
-  } catch(e) {
+  } catch(err) {
     emptyMsg.style.display = '';
     emptyMsg.textContent = 'Could not compute average.';
     avgDisplay.style.display = 'none';
+    copyBtn.style.display = 'none';
   }
 }
 

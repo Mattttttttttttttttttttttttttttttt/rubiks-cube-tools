@@ -5,7 +5,17 @@
   <title>Mean Generator — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .solve-list { position: relative; display: flex; flex-direction: column; gap: 7px; }
+    /* FIX 8: solve-list no longer flex-grows; button sits right below it */
+    .solve-list {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      /* override shared flex:1 so the list doesn't swallow the whole panel */
+      flex: none;
+      max-height: calc(100vh - var(--nav-h) - 170px);
+      overflow-y: auto;
+    }
 
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
     .solve-error {
@@ -34,8 +44,31 @@
       background: none; border: none; color: var(--text-muted);
       cursor: pointer; font-size: 1rem; padding: 2px 6px;
       line-height: 1; flex-shrink: 0;
+      transition: color 0.12s;
     }
     .remove-btn:hover { color: #c41e3a; }
+    /* FIX 6: hide X when only one solve remains */
+    .remove-btn.hidden { visibility: hidden; pointer-events: none; }
+
+    /* FIX 2: +2 state — orange-yellow tint */
+    .solve-field.p2-state {
+      color: #d49010;
+      border-color: #d4901066;
+    }
+
+
+    .solve-field.dnf-state {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+      text-decoration: line-through;
+    }
+
+    /* DNF penalty button active: accent colour */
+    .pen-btn.dnf {
+      color: var(--accent) !important;
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+      background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+    }
 
     .output-mean-str {
       font-family: var(--font-mono); font-size: 0.8rem;
@@ -61,8 +94,9 @@
         <div class="panel-title"><span class="dot"></span>Mean Generator</div>
         <div class="panel-sub">Enter solves — live output on the right</div>
       </div>
+      <!-- FIX 8: button is right after solve-list, not pinned to panel bottom -->
       <div id="solveList" class="solve-list"></div>
-      <div class="mt-8">
+      <div class="mt-16">
         <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
       </div>
       <div class="divider"></div>
@@ -88,11 +122,10 @@
 
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { numPart } from '../shared/helpers.js';
 buildNav('mean');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let solves    = []; // { raw, penalty: null|'p2'|'dnf' }
+let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
 let dragState = null;
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
@@ -106,9 +139,9 @@ const copyBtn     = document.getElementById('copyBtn');
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-const timeRegex   = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
-const getEntries  = () => [...solveList.querySelectorAll('.solve-entry')];
-const getAllFields = () => [...solveList.querySelectorAll('.solve-field')];
+const timeRegex    = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getEntries   = () => [...solveList.querySelectorAll('.solve-entry')];
+const getAllFields  = () => [...solveList.querySelectorAll('.solve-field')];
 const getEntryIndex = el => getEntries().indexOf(el.closest('.solve-entry'));
 
 function decimalPlaces(v) {
@@ -155,6 +188,39 @@ function setInlineError(entry, msg) {
   el.classList.toggle('visible', !!msg);
 }
 
+// ── FIX 1 / 2 / 3 / 4: centralised visual state for a field ─────────────────
+// raw is always the original unpenalised time string.
+// The field shows a styled display value; field.readOnly prevents accidental
+// edits while a penalty is active (clear penalty to re-edit).
+function applyFieldDisplay(field, s) {
+  field.readOnly = false;
+  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
+
+  if (s.penalty === 'p2' && s.raw) {
+    // FIX 2: show time+2 with "+" suffix in orange-yellow
+    const dec = decimalPlaces(s.raw);
+    field.value = formatTime(toSeconds(s.raw) + 2, dec) + '+';
+    field.classList.add('p2-state');
+    field.readOnly = true;
+  } else if (s.penalty === 'dnf') {
+    // FIX 3: show DNF(raw) in bright red with strikethrough
+    field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
+    field.classList.add('dnf-state');
+    field.readOnly = true;
+  } else {
+    // Normal editable field — no ok/err border colouring (FIX 1)
+    field.value = s.raw;
+  }
+}
+
+// ── FIX 6: show/hide all remove buttons when count changes ───────────────────
+function updateRemoveBtns() {
+  const single = solves.length <= 1;
+  solveList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.classList.toggle('hidden', single);
+  });
+}
+
 // ── Row creation ──────────────────────────────────────────────────────────────
 function createEntryEl(idx) {
   const s = solves[idx];
@@ -183,60 +249,72 @@ function createEntryEl(idx) {
   field.type = 'text';
   field.className = 'solve-field';
   field.placeholder = '0.00';
-  field.value = s.raw;
-  if (s.penalty === 'dnf') field.classList.add('dnf-state');
-  else if (s.raw) field.classList.add('ok');
+  // FIX 1 / 4: use applyFieldDisplay for initial state (no spurious .ok colouring)
+  applyFieldDisplay(field, s);
   fieldWrap.appendChild(field);
 
   field.addEventListener('input', () => {
+    // readOnly fields don't fire 'input' from the user, but guard anyway
+    if (field.readOnly) return;
     const ri = getEntryIndex(field);
     if (ri === -1) return;
     const v = field.value;
 
-    // Shortcut: "dnf(" → DNF flag
-    if (/^dnf\($/i.test(v)) {
-      field.value = '';
-      solves[ri].raw = '';
+    // Shortcut: "dnf" or "dnf(" → DNF flag
+    if (/^dnf\(?$/i.test(v)) {
       solves[ri].penalty = 'dnf';
-      field.classList.add('dnf-state');
-      field.classList.remove('err', 'ok');
+      // keep existing raw so DNF(time) can display if raw was already set
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, 'dnf');
       recompute();
       return;
     }
 
-    // Shortcut: ends with "+" → +2 flag
+    // FIX 4: shortcut ends with "+" → +2 flag
+    // Store the ORIGINAL time as raw (not original-2) so display shows time+2
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        const rawSecs = toSeconds(base) - 2;
-        if (rawSecs >= 0) {
-          const dec = decimalPlaces(base);
-          field.value = formatTime(rawSecs, dec);
-          solves[ri].raw = field.value;
-          solves[ri].penalty = 'p2';
-          field.classList.remove('err', 'dnf-state');
-          field.classList.add('ok');
-          updatePenBtns(entry, 'p2');
-          recompute();
-          return;
-        }
+        solves[ri].raw     = base;   // original time e.g. "2.30"
+        solves[ri].penalty = 'p2';
+        applyFieldDisplay(field, solves[ri]); // shows "4.30+" in orange
+        updatePenBtns(entry, 'p2');
+        recompute();
+        return;
       }
     }
 
-    solves[ri].raw = v.trim();
+    // Plain typing — clear any leftover penalty
+    solves[ri].raw     = v.trim();
+    solves[ri].penalty = null;
+    updatePenBtns(entry, null);
     recompute();
   });
 
   field.addEventListener('keydown', e => {
     const ri = getEntryIndex(field);
 
+    // FIX 5 / 6: Delete/Backspace on an empty (non-readonly) field removes the row
+    if ((e.key === 'Delete' || e.key === 'Backspace') &&
+        !field.readOnly && field.value === '' && solves.length > 1) {
+      e.preventDefault();
+      const fields = getAllFields();
+      const focusTarget = fields[ri - 1] || fields[ri + 1];
+      solves.splice(ri, 1);
+      entry.remove();
+      renumberRows();
+      updateRemoveBtns();
+      recompute();
+      focusTarget?.focus();
+      return;
+    }
+
     // Ctrl+1 → clear penalty
     if (e.ctrlKey && e.key === '1') {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = null;
-      field.classList.remove('dnf-state');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, null);
       recompute();
       return;
@@ -246,7 +324,7 @@ function createEntryEl(idx) {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === 'p2' ? null : 'p2';
-      field.classList.remove('dnf-state');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
       return;
@@ -256,7 +334,7 @@ function createEntryEl(idx) {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === 'dnf' ? null : 'dnf';
-      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
       return;
@@ -285,7 +363,7 @@ function createEntryEl(idx) {
       const ri = getEntryIndex(field);
       if (ri === -1) return;
       solves[ri].penalty = solves[ri].penalty === type ? null : type;
-      field.classList.toggle('dnf-state', solves[ri].penalty === 'dnf');
+      applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
     });
@@ -293,17 +371,23 @@ function createEntryEl(idx) {
   }
   penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
 
-  // Remove
+  // Remove button — hidden when only one solve remains (FIX 6)
   const rm = document.createElement('button');
   rm.className = 'remove-btn';
   rm.textContent = '×';
+  rm.title = 'Remove solve';
   rm.addEventListener('click', () => {
+    if (solves.length <= 1) return; // safety guard (FIX 6)
     const ri = getEntryIndex(field);
     if (ri === -1) return;
+    const fields = getAllFields();
+    const focusTarget = fields[ri - 1] || fields[ri + 1];
     solves.splice(ri, 1);
     entry.remove();
     renumberRows();
+    updateRemoveBtns();
     recompute();
+    focusTarget?.focus();
   });
 
   row.append(handle, num, fieldWrap, penaltyWrap, rm);
@@ -318,12 +402,14 @@ function createEntryEl(idx) {
 function rebuildRows() {
   solveList.innerHTML = '';
   solves.forEach((_, i) => solveList.appendChild(createEntryEl(i)));
+  updateRemoveBtns(); // FIX 6: refresh button visibility after rebuild
 }
 
 function addRow(focusNew = true) {
   solves.push({ raw: '', penalty: null });
   const entry = createEntryEl(solves.length - 1);
   solveList.appendChild(entry);
+  updateRemoveBtns(); // FIX 6
   if (focusNew) entry.querySelector('.solve-field')?.focus();
   recompute();
 }
@@ -335,9 +421,12 @@ function startDrag(e, entryEl) {
   const rect    = entryEl.getBoundingClientRect();
 
   const ghost = entryEl.cloneNode(true);
+  // FIX 1: strip ok/err/p2/dnf classes from ghost inputs so no coloured flash
   ghost.querySelectorAll('input').forEach(inp => {
     inp.style.border = '1px solid var(--border)';
     inp.style.boxShadow = 'none';
+    inp.style.color = 'var(--text)';
+    inp.style.textDecoration = 'none';
   });
   ghost.querySelector('.solve-error')?.remove();
   Object.assign(ghost.style, {
@@ -409,41 +498,49 @@ function onDragEnd() {
   if (dropIdx === fromIdx || dropIdx === fromIdx + 1) return;
   const [moved] = solves.splice(fromIdx, 1);
   solves.splice(dropIdx > fromIdx ? dropIdx - 1 : dropIdx, 0, moved);
+  // FIX 1: rebuildRows calls applyFieldDisplay which never adds spurious .ok
   rebuildRows();
   recompute();
 }
 
 // ── Compute ───────────────────────────────────────────────────────────────────
 function recompute() {
-  // Clear all inline errors first
   solveList.querySelectorAll('.solve-error').forEach(el => {
     el.textContent = ''; el.classList.remove('visible');
   });
 
   const entries = getEntries();
-  const filled  = solves.filter(s => s.raw || s.penalty === 'dnf');
+
+  // FIX 7: only count solves that actually have content
+  const filled = solves.filter(s => (s.raw || '').trim() || s.penalty === 'dnf');
 
   if (filled.length < 2) {
     emptyMsg.style.display = '';
-    emptyMsg.textContent = 'Add at least 2 solves to see the mean.';
+    emptyMsg.textContent = filled.length === 0
+      ? 'Add at least 2 solves to see the mean.'
+      : 'Add 1 more solve to see the mean.';
     meanDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
     return;
   }
 
-  // Validate and collect labels
+  // Validate and collect labels — FIX 7: skip empty fields entirely
   let hasInvalid = false;
   const labels = solves.map((s, i) => {
-    if (!s.raw && s.penalty !== 'dnf') return null;
-    if (s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF')
-      return s.raw && s.raw.toUpperCase() !== 'DNF' ? `DNF(${s.raw})` : 'DNF';
-    if (!timeRegex(s.raw)) {
-      setInlineError(entries[i], `"${s.raw}" is not a valid time`);
+    const raw = (s.raw || '').trim();
+    if (!raw && s.penalty !== 'dnf') return null; // FIX 7: skip empties
+
+    if (s.penalty === 'dnf' || raw.toUpperCase() === 'DNF')
+      return raw && raw.toUpperCase() !== 'DNF' ? `DNF(${raw})` : 'DNF';
+
+    if (!timeRegex(raw)) {
+      setInlineError(entries[i], `"${raw}" is not a valid time`);
       hasInvalid = true;
       return null;
     }
-    if (s.penalty === 'p2') return formatTime(toSeconds(s.raw) + 2, decimalPlaces(s.raw)) + '+';
-    return s.raw;
+    // FIX 2: label shows time+2 with "+"
+    if (s.penalty === 'p2') return formatTime(toSeconds(raw) + 2, decimalPlaces(raw)) + '+';
+    return raw;
   }).filter(Boolean);
 
   if (hasInvalid) {
@@ -454,8 +551,7 @@ function recompute() {
     return;
   }
 
-  // DNF → mean is DNF
-  const hasDnf = solves.some(s => s.penalty === 'dnf' || s.raw?.toUpperCase() === 'DNF');
+  const hasDnf = solves.some(s => s.penalty === 'dnf' || (s.raw || '').toUpperCase() === 'DNF');
   if (hasDnf) {
     emptyMsg.style.display = 'none';
     meanDisplay.style.display = '';
@@ -467,14 +563,15 @@ function recompute() {
     return;
   }
 
+  // FIX 7: filter out empty solves before computing mean
   const vals = solves
-    .filter(s => s.raw)
+    .filter(s => (s.raw || '').trim())
     .map(s => toSeconds(s.raw) + (s.penalty === 'p2' ? 2 : 0));
 
   if (!vals.length) return;
 
-  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-  const dec  = Math.max(...solves.filter(s => s.raw).map(s => decimalPlaces(s.raw)));
+  const mean   = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const dec    = Math.max(...solves.filter(s => s.raw).map(s => decimalPlaces(s.raw)));
   const result = formatTime(mean, Math.max(dec, 3));
 
   emptyMsg.style.display = 'none';

@@ -6,31 +6,46 @@
   <link rel="stylesheet" href="../shared/style.css">
   <style>
     .zone { padding: 18px 22px; border-bottom: 1px solid var(--border); }
-    .zone-title { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:10px; }
-    #pasteArea { width:100%;min-height:90px;resize:vertical; }
+    .zone-title { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:10px; }
+    #pasteArea { width:100%;min-height:90px;field-sizing: content;resize: none; }
     .config-row { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end; }
     .config-item { display:flex;flex-direction:column;gap:4px; }
-    .config-item label { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted); }
+    .config-item label { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-dim); }
     .config-item input { width:80px; }
     .tooltip-wrap { position:relative;display:inline-block; }
-    .tooltip-q { font-size:0.6rem;color:var(--accent);cursor:help;margin-left:3px;vertical-align:middle; }
+    .tooltip-q { display:inline-flex; align-items:center; font-size:0.65rem; color:var(--accent); cursor:help; margin-left:3px; }
     .tooltip-box {
       display:none;position:absolute;bottom:calc(100% + 4px);left:0;
       background:var(--surface-2);border:1px solid var(--border-2);
       border-radius:var(--radius);padding:8px 10px;
-      font-size:0.72rem;color:var(--text-dim);line-height:1.5;
+      font-size:0.75rem;color:var(--text-dim);line-height:1.5;
       width:230px;z-index:50;white-space:normal;
     }
     .tooltip-wrap:hover .tooltip-box { display:block; }
     .output-cols { display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 22px; }
     .out-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px; }
-    .out-card h3 { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:10px; }
-    .stat-line { display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border); }
+    .out-card h3 { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-dim);margin-bottom:10px; }
+    .stat-line { display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border); }
     .stat-line:last-child { border-bottom:none; }
-    .stat-line-key { font-size:0.75rem;color:var(--text-dim); }
-    .stat-line-val { font-family:var(--font-mono);font-size:0.82rem;color:var(--text); }
+    .stat-line-key { font-size:0.82rem;color:var(--text); }
+    .stat-line-val { font-family:var(--font-mono);font-size:0.88rem;color:var(--text); }
     .stat-line-val.hi { color:var(--accent); }
-    .placeholder-out { color:var(--text-muted);font-size:0.8rem;font-style:italic;padding:14px; }
+    .placeholder-out { color:var(--text-dim);font-size:0.85rem;font-style:italic;padding:14px; }
+    .cuts-row { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end; }
+    .config-section-label {
+      font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
+      color:var(--text-muted);margin-bottom:8px;
+    }
+    .btn-recommend {
+      align-self:flex-end;
+      padding:9px 10px;
+      font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+      background:var(--surface-2);color:var(--text-dim);
+      border:1px solid var(--border-2);border-radius:var(--radius);
+      cursor:pointer;white-space:nowrap;
+      transition:color .15s,border-color .15s;
+    }
+    .btn-recommend:hover { color:var(--accent);border-color:var(--accent); }
     @media(max-width:700px){.output-cols{grid-template-columns:1fr}}
   </style>
 </head>
@@ -45,60 +60,90 @@
 
   <div class="zone" id="configZone" style="opacity:.35;pointer-events:none">
     <div class="zone-title">2 — Configure</div>
+
+    <!-- ── +2 toggle ── -->
+    <div class="config-section-label">+2s</div>
     <div class="config-row">
-      <div class="config-item">
-        <label>Track +2s
+      <div class="config-item" style="align-self:flex-start">
+        <label style="display:flex;align-items:center;gap:4px;line-height:1.3">Track +2s
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
             <span class="tooltip-box">Enable to see total +2s, un-+2'd average, and how many +2s fall in each cut range.</span>
           </span>
         </label>
-        <label class="toggle" style="margin-top:4px">
-          <input type="checkbox" id="p2Toggle">
+        <label class="toggle">
+          <input type="checkbox" id="p2Toggle" checked>
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
       </div>
+    </div>
+
+    <div class="divider" style="margin:14px 0"></div>
+
+    <!-- ── Cuts ── -->
+    <div class="config-section-label">time cuts</div>
+    <div class="config-row">
       <div class="config-item">
-        <label>Cut 1 (s)
+        <label for="cut1">Cut 1
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">First time cut in seconds. Solves between Cut 1 and Cut 2 form the first range. For 1:03 enter 63.</span>
+            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 1 should be the fastest solve in your average.</span>
           </span>
         </label>
-        <input type="number" id="cut1" value="8" step="0.1">
+        <input type="text" id="cut1" placeholder="e.g. 8">
       </div>
       <div class="config-item">
-        <label>Cut 2 (s)
+        <label for="cut2">Cut 2
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Second time cut in seconds. Solves between Cut 2 and Cut 3 form the second range.</span>
+            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 2 should be something between cut 1 and cut 3, but up to you where you put them.</span>
           </span>
         </label>
-        <input type="number" id="cut2" value="10" step="0.1">
+        <input type="text" id="cut2" placeholder="e.g. 10">
       </div>
       <div class="config-item">
-        <label>Cut 3 (s)
+        <label for="cut3">Cut 3
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Third time cut. Solves above this are shown separately as "bad" solves.</span>
+            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 3 should be the fastest time you would consider "bad".</span>
           </span>
         </label>
-        <input type="number" id="cut3" value="12" step="0.1">
+        <input type="text" id="cut3" placeholder="e.g. 1:03">
       </div>
+      <button class="btn-recommend" id="btnRecommend">
+        Use recommended
+        <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+          <span class="tooltip-box">Click to auto-fill cuts based on your average.</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="divider" style="margin:14px 0"></div>
+
+    <!-- ── Rolling avgs ── -->
+    <div class="config-section-label">rolling averages</div>
+    <div class="config-row">
       <div class="config-item">
-        <label>Avg 1
+        <label for="avg1">Avg 1
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Length of first rolling average to find best of (e.g. 5 for best ao5).</span>
+            <span class="tooltip-box">Length of the first rolling average to find best of (e.g. 5 for best ao5).</span>
           </span>
         </label>
         <input type="number" id="avg1" value="5" min="3">
       </div>
       <div class="config-item">
-        <label>Avg 2
+        <label for="avg2">Avg 2
           <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Length of second rolling average to find best of (e.g. 12 for best ao12).</span>
+            <span class="tooltip-box">Length of the second rolling average to find best of (e.g. 12 for best ao12).</span>
           </span>
         </label>
         <input type="number" id="avg2" value="12" min="3">
       </div>
     </div>
+  </div>
+
+  <div id="copyBar" style="display:none;border-bottom:1px solid var(--border);padding:10px 22px;align-items:center;gap:12px;background:var(--surface)">
+    <button class="btn btn-secondary" id="btnCopy" style="flex:1;justify-content:center;font-size:0.72rem;letter-spacing:.07em">
+      Copy results
+    </button>
+    <span id="copyConfirm" style="font-size:0.72rem;color:#91df91;opacity:0;transition:opacity .3s;white-space:nowrap">Copied!</span>
   </div>
 
   <div class="output-cols" id="outputCols">
@@ -118,18 +163,80 @@ import {
 
 buildNav('stats');
 
-const pasteArea  = document.getElementById('pasteArea');
-const configZone = document.getElementById('configZone');
-const outputCols = document.getElementById('outputCols');
-const placeholder= document.getElementById('placeholderOut');
-const p2Toggle   = document.getElementById('p2Toggle');
-const cut1In     = document.getElementById('cut1');
-const cut2In     = document.getElementById('cut2');
-const cut3In     = document.getElementById('cut3');
-const avg1In     = document.getElementById('avg1');
-const avg2In     = document.getElementById('avg2');
+const pasteArea   = document.getElementById('pasteArea');
+const configZone  = document.getElementById('configZone');
+const outputCols  = document.getElementById('outputCols');
+const placeholder = document.getElementById('placeholderOut');
+const p2Toggle    = document.getElementById('p2Toggle');
+const cut1In      = document.getElementById('cut1');
+const cut2In      = document.getElementById('cut2');
+const cut3In      = document.getElementById('cut3');
+const avg1In      = document.getElementById('avg1');
+const avg2In      = document.getElementById('avg2');
+const btnRecommend= document.getElementById('btnRecommend');
+const copyBar     = document.getElementById('copyBar');
+const btnCopy     = document.getElementById('btnCopy');
+const copyConfirm = document.getElementById('copyConfirm');
 
 let parsed = null;
+let autoRecommended = false;
+let lastStats = null;
+
+// Parse a cut field: accepts "1:03" or plain seconds
+function parseCut(val) {
+  if (!val || !val.trim()) return 0;
+  const s = val.trim();
+  if (s.includes(':')) return minutes(s);
+  return parseFloat(s) || 0;
+}
+
+// Round to nearest 0.5, but prefer integers (integers win if within 0.25 of value)
+function snapToHalf(v) {
+  const rounded = Math.round(v * 2) / 2;
+  return rounded;
+}
+
+// Format a seconds value for display in cut input fields
+function fmtCut(secs) {
+  return seconds(String(secs));
+}
+
+function recommendCuts(rFloat) {
+  const sorted = rFloat.filter(v => v !== 'DNF').slice().sort((a, b) => a - b);
+  if (sorted.length < 3) return null;
+  const n = sorted.length;
+
+  // Cut 1: largest integer strictly less than fastest solve
+  const minVal = sorted[0];
+  const cut1 = Number.isInteger(minVal) ? minVal - 1 : Math.floor(minVal);
+
+  // Cut 2: ~20% of solves between cut1 and cut2 → 20th percentile of all solves
+  const p20idx = Math.max(0, Math.ceil(n * 0.20) - 1);
+  const raw2 = Math.max(sorted[p20idx], cut1 + 0.5);
+  let cut2 = snapToHalf(raw2);
+  if (cut2 <= cut1) cut2 = snapToHalf(cut1 + 0.5);
+
+  // Cut 3: ~20% of solves above cut3 → 80th percentile
+  const p80idx = Math.min(n - 1, Math.floor(n * 0.80));
+  const raw3 = Math.max(sorted[p80idx], cut2 + 0.5);
+  let cut3 = snapToHalf(raw3);
+  if (cut3 <= cut2) cut3 = snapToHalf(cut2 + 0.5);
+
+  return { cut1, cut2, cut3 };
+}
+
+function applyRecommended() {
+  if (!parsed) return;
+  const rFloat = parsed.r.map(s => s === 'DNF' ? 'DNF' : parseFloat(s));
+  const cuts = recommendCuts(rFloat);
+  if (!cuts) return;
+  cut1In.value = fmtCut(cuts.cut1);
+  cut2In.value = fmtCut(cuts.cut2);
+  cut3In.value = fmtCut(cuts.cut3);
+  if (parsed) compute();
+}
+
+btnRecommend.addEventListener('click', applyRecommended);
 
 function tryParse(raw) {
   if (!raw.includes('avg of') || !raw.includes('Time List:')) return null;
@@ -149,14 +256,28 @@ function tryParse(raw) {
 }
 
 pasteArea.addEventListener('input', () => {
+  if (!(pasteArea.value)) {
+    autoRecommended = false;
+    cut1In.value = '';
+    cut2In.value = '';
+    cut3In.value = '';
+    copyBar.style.display = 'none';
+    lastStats = null;
+  }
   parsed = tryParse(pasteArea.value);
   if (parsed) {
     configZone.style.opacity = '1';
     configZone.style.pointerEvents = '';
-    // Set defaults based on data
     if (parsed.length >= 12 && !avg2In.dataset.touched) avg2In.value = Math.min(12, parsed.length - 1);
     if (parsed.length < 5)  avg1In.value = '';
     if (parsed.length < 12) avg2In.value = '';
+
+    // Auto-recommend cuts
+    if (!autoRecommended) {
+      autoRecommended = true;
+      applyRecommended();
+      return; // applyRecommended calls compute()
+    }
     compute();
   } else {
     configZone.style.opacity = '.35';
@@ -168,7 +289,7 @@ pasteArea.addEventListener('input', () => {
 
 [p2Toggle, cut1In, cut2In, cut3In, avg1In, avg2In].forEach(el => {
   el.addEventListener('change', () => { if (parsed) compute(); });
-  if (el.type === 'number') el.addEventListener('input', () => { if (parsed) compute(); });
+  if (el.type === 'number' || el.type === 'text') el.addEventListener('input', () => { if (parsed) compute(); });
 });
 avg2In.addEventListener('input', () => avg2In.dataset.touched = '1');
 
@@ -182,26 +303,23 @@ function sLine(key, val, hi = false) {
 function compute() {
   const { timeList, r, avgVal, decimals, length } = parsed;
   const PLUS_TWO = p2Toggle.checked;
-  const CUT1 = parseFloat(cut1In.value) || 0;
-  const CUT2 = parseFloat(cut2In.value) || 0;
-  const CUT3 = parseFloat(cut3In.value) || 0;
+  const CUT1 = parseCut(cut1In.value);
+  const CUT2 = parseCut(cut2In.value);
+  const CUT3 = parseCut(cut3In.value);
   const AVG1 = parseInt(avg1In.value) || null;
   const AVG2 = parseInt(avg2In.value) || null;
 
-  // Refined list in floats
   const rFloat = r.map(s => s === 'DNF' ? 'DNF' : parseFloat(s));
   const nonDnfFloat = rFloat.filter(v => v !== 'DNF');
 
-  // Parentheses info
   const parenSolves = keep(keep(timeList, ndnf), prths).map(s => noParen(s));
   const firstUnParen = keep(timeList, nprths).find(s => ndnf(s));
   const firstUnParenVal = firstUnParen ? minutes(noParen(firstUnParen)) : Infinity;
   const betterTrim = parenSolves.filter(s => parseFloat(numPart(s)) < firstUnParenVal).length;
   const worseTrim  = parenSolves.length - betterTrim;
 
-  // Best/worst singles
   const allNonDnf = keep(timeList, ndnf);
-  const bestSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) < minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
+  const bestSingle  = allNonDnf.reduce((b, s) => minutes(numPart(s)) < minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
   const worstSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) > minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
   const counting = keep(keep(timeList, nprths), ndnf);
   const bestCounting  = counting.reduce((b, s) => minutes(s) < minutes(b) ? s : b, counting[0] ?? '—');
@@ -221,9 +339,8 @@ function compute() {
 
   const sdVal = nonDnfFloat.length > 1 ? seconds(String(stdev(nonDnfFloat).toFixed(2))) : '—';
 
-  // p2 block
-  const dnfCount   = findAll(timeList, 'DNF');
-  const dstCount   = findAll(timeList, decimals === 3 ? 'DNF(0.001)' : 'DNF(0.01)');
+  const dnfCount = findAll(timeList, 'DNF');
+  const dstCount = findAll(timeList, decimals === 3 ? 'DNF(0.001)' : 'DNF(0.01)');
   let p2Count = null, unP2Avg = null;
   if (PLUS_TWO) {
     p2Count = findAll(timeList, '+');
@@ -239,9 +356,9 @@ function compute() {
     }
   }
 
-  // Cut ranges
-  const c1Label = CUT2 - CUT1 === 1 ? `${seconds(String(CUT1))}s` : `${seconds(String(CUT1))}–${seconds(String(CUT2))}`;
-  const c2Label = CUT3 - CUT2 === 1 ? `${seconds(String(CUT2))}s` : `${seconds(String(CUT2))}–${seconds(String(CUT3))}`;
+  const hasCuts = CUT1 || CUT2 || CUT3;
+  const c1Label = (CUT2 - CUT1 === 1) ? `${seconds(String(CUT1))}` : `${seconds(String(CUT1))} – ${seconds(String(CUT2))}`;
+  const c2Label = (CUT3 - CUT2 === 1) ? `${seconds(String(CUT2))}` : `${seconds(String(CUT2))} – ${seconds(String(CUT3))}`;
   const inR1 = rFloat.filter(v => v !== 'DNF' && v > CUT1 && v < CUT2).length;
   const inR2 = rFloat.filter(v => v !== 'DNF' && v > CUT2 && v < CUT3).length;
   const above = rFloat.filter(v => v !== 'DNF' && v >= CUT3).length;
@@ -252,9 +369,19 @@ function compute() {
     r1Str = `${p2inR1}/${inR1}`; r2Str = `${p2inR2}/${inR2}`;
   }
 
-  // Repeats
   const reps = repeat(rFloat);
   const repStrs = Object.entries(reps).map(([v, c]) => `${c > 2 ? c + ' ' : ''}${v}${c > 2 ? 's' : ''}`);
+
+  // Store for copy
+  lastStats = {
+    length, decimals, avgVal, AVG1, AVG2, PLUS_TWO, CUT1, CUT2, CUT3,
+    bestSingle: noParen(bestSingle), worstSingle: noParen(worstSingle),
+    bestCounting, worstCounting, bestA1, bestA2, sdVal,
+    dnfCount, dstCount, p2Count, unP2Avg,
+    hasCuts, c1Label, c2Label, r1Str, r2Str, above,
+    repStrs
+  };
+  copyBar.style.display = 'flex';
 
   placeholder.remove();
   outputCols.innerHTML = `
@@ -271,18 +398,57 @@ function compute() {
     <div class="out-card">
       <h3>Distribution</h3>
       ${sLine('DNFs',              dnfCount)}
-      ${sLine('Didn\'t start',     dstCount)}
+      ${sLine('Didn\'t start timer',     dstCount)}
       ${PLUS_TWO ? sLine('+2s', p2Count) : ''}
       ${PLUS_TWO && unP2Avg ? sLine(`Un-+2'd ao${length}`, unP2Avg) : ''}
-      ${sLine(`${PLUS_TWO ? '+2 to ' : ''}${c1Label}`, r1Str)}
-      ${sLine(`${PLUS_TWO ? '+2 to ' : ''}${c2Label}`, r2Str)}
-      ${sLine(`${seconds(String(CUT3))}+`, above)}
+      ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c1Label}`, r1Str) : ''}
+      ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c2Label}`, r2Str) : ''}
+      ${hasCuts ? sLine(`${seconds(String(CUT3))}+`, above) : ''}
       <div class="stat-line" style="flex-direction:column;align-items:flex-start;gap:4px">
-        <span class="stat-line-key">Repeats</span>
-        <span class="stat-line-val" style="font-size:0.75rem">${repStrs.length ? repStrs.join(', ') : 'none'}</span>
+        <span class="stat-line-key">Repeats:</span>
+        <span class="stat-line-val" style="font-size:0.82rem">${repStrs.length ? repStrs.join(', ') : 'none'}</span>
       </div>
     </div>`;
 }
+btnCopy.addEventListener('click', () => {
+  if (!lastStats) return;
+  const {
+    length, decimals, AVG1, AVG2, PLUS_TWO, CUT1, CUT2, CUT3,
+    bestSingle, worstSingle, bestCounting, worstCounting, bestA1, bestA2, sdVal,
+    dnfCount, dstCount, p2Count, unP2Avg,
+    hasCuts, c1Label, c2Label, r1Str, r2Str, above,
+    repStrs
+  } = lastStats;
+
+  const fmtBest = v => (v === null || v === undefined) ? null
+    : (v === 'DNF' ? 'DNF' : seconds(String(v)));
+
+  const lines = ['## stats:', '**comments**: '];
+  lines.push(`**best single:** ${bestSingle}`);
+  lines.push(`**worst single:** ${worstSingle}`);
+  lines.push(`**best counting:** ${bestCounting}`);
+  lines.push(`**worst counting:** ${worstCounting}`);
+  if (AVG1 && bestA1 !== null) lines.push(`**best ao${AVG1}:** ${fmtBest(bestA1)}`);
+  if (AVG2 && bestA2 !== null) lines.push(`**best ao${AVG2}:** ${fmtBest(bestA2)}`);
+  lines.push(`**standard deviation:** ${sdVal}`);
+  lines.push(`**dnfs:** ${dnfCount}`);
+  lines.push(`**didnt start timer dnfs:** ${dstCount}`);
+  if (PLUS_TWO) lines.push(`**+2s:** ${p2Count}`);
+  if (PLUS_TWO && unP2Avg) lines.push(`**un+2ed ao${length}:** ${unP2Avg}`);
+  if (hasCuts) {
+    const pfx = PLUS_TWO ? '+2 to ' : '';
+    lines.push(`**${pfx}${c1Label}:** ${r1Str}`);
+    lines.push(`**${pfx}${c2Label}:** ${r2Str}`);
+    lines.push(`**${seconds(String(CUT3))}+s:** ${above}`);
+  }
+  lines.push('');
+  lines.push(`**repeats:** ${repStrs.length ? repStrs.join(', ') : 'none'}`);
+
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    copyConfirm.style.opacity = '1';
+    setTimeout(() => copyConfirm.style.opacity = '0', 1800);
+  });
+});
 </script>
 </body>
 </html>
