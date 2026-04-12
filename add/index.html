@@ -5,96 +5,472 @@
   <title>Time Addition — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .time-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
-    .time-row{display:flex;gap:7px;align-items:center}
-    .time-row input{flex:1}
-    .remove-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:2px 6px;line-height:1}
-    .remove-btn:hover{color:#c41e3a}
-    .add-row-btn{align-self:flex-start}
+    .solve-list {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: none;
+      max-height: calc(100vh - var(--nav-h) - 170px);
+      overflow-y: auto;
+    }
+
+    .solve-entry { display: flex; flex-direction: column; gap: 3px; }
+    .solve-error {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: #c41e3a; padding-left: 30px;
+      display: none;
+    }
+    .solve-error.visible { display: block; }
+
+    .remove-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1rem; padding: 2px 6px;
+      line-height: 1; flex-shrink: 0;
+      transition: color 0.12s;
+    }
+    .remove-btn:hover { color: #c41e3a; }
+    .remove-btn.hidden { visibility: hidden; pointer-events: none; }
+
+    .solve-field.p2-state {
+      color: #d49010;
+      border-color: #d4901066;
+    }
+    .solve-field.dnf-state {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+      text-decoration: line-through;
+    }
+    .pen-btn.dnf {
+      color: var(--accent) !important;
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+      background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+    }
+
+    .output-box { flex: none; min-height: 0; }
+    .output-sum-str {
+      font-family: var(--font-mono); font-size: 0.8rem;
+      color: var(--text-dim); line-height: 2; word-break: break-all;
+    }
+    #copyBtn { margin-top: 14px; }
   </style>
 </head>
 <body>
 <div id="nav"></div>
 <div class="page">
   <div class="split">
+
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title"><span class="dot"></span>Time Addition</div>
-        <div class="panel-sub">Add times together — M:SS.xx or SS.xx format</div>
+        <div class="panel-sub">Add times under an hour together</div>
       </div>
-      <div id="timeRows" class="time-rows"></div>
-      <button class="btn btn-ghost add-row-btn" id="addRow">+ Add time</button>
+      <div id="solveList" class="solve-list"></div>
+      <div class="mt-16">
+        <button class="btn btn-ghost" id="addRowBtn">+ Add time</button>
+      </div>
       <div class="divider"></div>
-      <button class="btn btn-primary" id="goBtn">Calculate sum</button>
-      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;margin-top:8px"></div>
     </div>
-    <div class="panel" style="justify-content:center">
-      <div class="output-box" id="out">
-        <div class="output-empty">Add times on the left and hit Calculate.</div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
+        <div class="panel-sub">Updates live as you type</div>
       </div>
+      <div class="output-box" id="outputBox">
+        <div id="emptyMsg" class="output-empty">Add at least one time on the left.</div>
+        <div id="sumDisplay" style="display:none">
+          <div class="output-big" id="sumValue">—</div>
+          <div class="output-sum-str" id="sumStr"></div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
     </div>
+
   </div>
 </div>
+
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { minutes, seconds, numPart } from '../shared/helpers.js';
+import { minutes, seconds } from '../shared/helpers.js';
 buildNav('add');
 
-const timeRows = document.getElementById('timeRows');
-const errMsg   = document.getElementById('errMsg');
-const out      = document.getElementById('out');
+// ── State ─────────────────────────────────────────────────────────────────────
+let solves = []; // { raw: string, penalty: null|'p2'|'dnf' }
 
-function addRow(val = '') {
-  const row = document.createElement('div');
-  row.className = 'time-row';
-  const inp = document.createElement('input');
-  inp.type = 'text'; inp.placeholder = '0:09.45 or 9.45';
-  inp.value = val;
-  inp.addEventListener('input', liveCompute);
-  const rm = document.createElement('button');
-  rm.className = 'remove-btn'; rm.textContent = '×';
-  rm.addEventListener('click', () => { row.remove(); liveCompute(); });
-  row.append(inp, rm);
-  timeRows.appendChild(row);
-  inp.focus();
-}
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const solveList  = document.getElementById('solveList');
+const emptyMsg   = document.getElementById('emptyMsg');
+const sumDisplay = document.getElementById('sumDisplay');
+const sumValue   = document.getElementById('sumValue');
+const sumStrEl   = document.getElementById('sumStr');
+const copyBtn    = document.getElementById('copyBtn');
 
-document.getElementById('addRow').addEventListener('click', () => addRow());
-document.getElementById('goBtn').addEventListener('click', compute);
+document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
-// Start with 3 rows
-addRow(); addRow(); addRow();
+// ── Utilities ─────────────────────────────────────────────────────────────────
+const timeRegex     = v => /^(\d+:)?\d+(\.\d+)?$/.test(v.trim());
+const getEntries    = () => [...solveList.querySelectorAll('.solve-entry')];
+const getAllFields   = () => [...solveList.querySelectorAll('.solve-field')];
+const getEntryIndex = el => getEntries().indexOf(el.closest('.solve-entry'));
 
-function getVals() {
-  return [...timeRows.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
-}
-
-function liveCompute() { compute(true); }
-
-function compute(silent = false) {
-  errMsg.textContent = '';
-  const vals = getVals();
-  if (vals.length < 1) { if (!silent) errMsg.textContent = 'Add at least one time.'; return; }
-
-  const parsed = vals.map(v => {
-    const np = numPart(v);
-    const val = minutes(np);
-    if (isNaN(val)) return null;
-    return val;
+function renumberRows() {
+  solveList.querySelectorAll('.solve-num').forEach((el, i) => {
+    el.textContent = (i + 1) + '.';
   });
-  if (parsed.some(v => v === null)) {
-    if (!silent) errMsg.textContent = 'One or more times are invalid.';
-    out.innerHTML = '<div class="output-empty">Fix invalid times to see result.</div>';
+}
+
+function updatePenBtns(entry, penalty) {
+  const btns = entry.querySelectorAll('.pen-btn');
+  if (!btns.length) return;
+  btns[0].classList.toggle('p2',  penalty === 'p2');
+  btns[1].classList.toggle('dnf', penalty === 'dnf');
+}
+
+function setInlineError(entry, msg) {
+  const el = entry.querySelector('.solve-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('visible', !!msg);
+}
+
+// ── DNF input parser ──────────────────────────────────────────────────────────
+function parseDnfInput(v) {
+  if (/^dnf$/i.test(v.trim())) return { raw: '' };
+  const m = v.match(/^dnf\s*\(?([\d:.]+)\)?$/i);
+  if (m && timeRegex(m[1])) return { raw: m[1] };
+  return null;
+}
+
+// ── Visual state ──────────────────────────────────────────────────────────────
+function applyFieldDisplay(field, s) {
+  field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
+  if (s.penalty === 'p2' && s.raw) {
+    field.value = s.raw + '+';
+    field.classList.add('p2-state');
+  } else if (s.penalty === 'dnf') {
+    field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
+    field.classList.add('dnf-state');
+  } else {
+    field.value = s.raw || '';
+  }
+}
+
+function applyPenaltyClass(field, penalty) {
+  field.classList.remove('p2-state', 'dnf-state');
+  if (penalty === 'p2')  field.classList.add('p2-state');
+  if (penalty === 'dnf') field.classList.add('dnf-state');
+}
+
+// ── Show/hide remove buttons ──────────────────────────────────────────────────
+function updateRemoveBtns() {
+  const single = solves.length <= 1;
+  solveList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.classList.toggle('hidden', single);
+  });
+}
+
+// ── Row creation ──────────────────────────────────────────────────────────────
+function createEntryEl(idx) {
+  const s = solves[idx];
+
+  const entry = document.createElement('div');
+  entry.className = 'solve-entry';
+
+  const row = document.createElement('div');
+  row.className = 'solve-row';
+
+  // Number
+  const num = document.createElement('div');
+  num.className = 'solve-num';
+  num.textContent = (idx + 1) + '.';
+
+  // Input
+  const fieldWrap = document.createElement('div');
+  fieldWrap.style.flex = '1';
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.className = 'solve-field';
+  field.placeholder = '0:00.00';
+  applyFieldDisplay(field, s);
+  fieldWrap.appendChild(field);
+
+  field.addEventListener('input', () => {
+    const ri = getEntryIndex(field);
+    if (ri === -1) return;
+    const v = field.value;
+
+    const dnfResult = parseDnfInput(v);
+    if (dnfResult !== null) {
+      solves[ri].raw     = dnfResult.raw;
+      solves[ri].penalty = 'dnf';
+      applyPenaltyClass(field, 'dnf');
+      updatePenBtns(entry, 'dnf');
+      recompute();
+      return;
+    }
+
+    if (v.endsWith('+')) {
+      const base = v.slice(0, -1).trim();
+      if (timeRegex(base)) {
+        solves[ri].raw     = base;
+        solves[ri].penalty = 'p2';
+        applyPenaltyClass(field, 'p2');
+        updatePenBtns(entry, 'p2');
+        recompute();
+        return;
+      }
+    }
+
+    solves[ri].raw     = v.trim();
+    solves[ri].penalty = null;
+    applyPenaltyClass(field, null);
+    updatePenBtns(entry, null);
+    recompute();
+  });
+
+  field.addEventListener('keydown', e => {
+    const ri = getEntryIndex(field);
+
+    // Delete/Backspace on empty field removes the row
+    if ((e.key === 'Delete' || e.key === 'Backspace') &&
+        field.value === '' && solves.length > 1) {
+      e.preventDefault();
+      const fields = getAllFields();
+      const focusTarget = fields[ri - 1] || fields[ri + 1];
+      solves.splice(ri, 1);
+      entry.remove();
+      renumberRows();
+      updateRemoveBtns();
+      recompute();
+      focusTarget?.focus();
+      return;
+    }
+
+    // Ctrl+1 → clear penalty
+    if (e.ctrlKey && e.key === '1') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = null;
+      applyFieldDisplay(field, solves[ri]);
+      updatePenBtns(entry, null);
+      recompute();
+      return;
+    }
+    // Ctrl+2 → toggle +2
+    if (e.ctrlKey && e.key === '2') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = solves[ri].penalty === 'p2' ? null : 'p2';
+      applyFieldDisplay(field, solves[ri]);
+      updatePenBtns(entry, solves[ri].penalty);
+      recompute();
+      return;
+    }
+    // Ctrl+3 → toggle DNF
+    if (e.ctrlKey && e.key === '3') {
+      e.preventDefault();
+      if (ri === -1) return;
+      solves[ri].penalty = solves[ri].penalty === 'dnf' ? null : 'dnf';
+      applyFieldDisplay(field, solves[ri]);
+      updatePenBtns(entry, solves[ri].penalty);
+      recompute();
+      return;
+    }
+
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const fields = getAllFields();
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) {
+      if (ri > 0) fields[ri - 1].focus();
+    } else {
+      if (ri === fields.length - 1) addRow(true);
+      else fields[ri + 1].focus();
+    }
+  });
+
+  // Penalty buttons
+  const penaltyWrap = document.createElement('div');
+  penaltyWrap.className = 'solve-penalties';
+
+  function makePen(label, type) {
+    const btn = document.createElement('button');
+    btn.className = 'pen-btn' + (s.penalty === type ? ` ${type}` : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      const ri = getEntryIndex(field);
+      if (ri === -1) return;
+      const cur = field.value.trim();
+      if (timeRegex(cur)) solves[ri].raw = cur;
+      solves[ri].penalty = solves[ri].penalty === type ? null : type;
+      applyFieldDisplay(field, solves[ri]);
+      updatePenBtns(entry, solves[ri].penalty);
+      recompute();
+    });
+    return btn;
+  }
+  penaltyWrap.append(makePen('+2', 'p2'), makePen('DNF', 'dnf'));
+
+  // Remove button
+  const rm = document.createElement('button');
+  rm.className = 'remove-btn';
+  rm.textContent = '×';
+  rm.title = 'Remove time';
+  rm.addEventListener('click', () => {
+    if (solves.length <= 1) return;
+    const ri = getEntryIndex(field);
+    if (ri === -1) return;
+    const fields = getAllFields();
+    const focusTarget = fields[ri - 1] || fields[ri + 1];
+    solves.splice(ri, 1);
+    entry.remove();
+    renumberRows();
+    updateRemoveBtns();
+    recompute();
+    focusTarget?.focus();
+  });
+
+  row.append(num, fieldWrap, penaltyWrap, rm);
+
+  const errLine = document.createElement('div');
+  errLine.className = 'solve-error';
+  entry.append(row, errLine);
+  return entry;
+}
+
+function addRow(focusNew = true) {
+  solves.push({ raw: '', penalty: null });
+  const entry = createEntryEl(solves.length - 1);
+  solveList.appendChild(entry);
+  updateRemoveBtns();
+  if (focusNew) entry.querySelector('.solve-field')?.focus();
+  recompute();
+}
+
+// ── Compute ───────────────────────────────────────────────────────────────────
+function renderTimeStr(s) {
+  if (s.penalty === 'dnf') return s.raw ? `DNF(${s.raw})` : 'DNF';
+  if (s.penalty === 'p2')  return seconds(String(minutes(s.raw) + 2)) + '+';
+  return s.raw;
+}
+
+function recompute() {
+  solveList.querySelectorAll('.solve-error').forEach(el => {
+    el.textContent = ''; el.classList.remove('visible');
+  });
+
+  const entries = getEntries();
+  let hasInvalid = false;
+
+  const formatted = solves.map((s, i) => {
+    const raw = (s.raw || '').trim();
+    if (!raw && s.penalty !== 'dnf') return null;
+    if (s.penalty === 'dnf') return raw ? `DNF(${raw})` : 'DNF';
+    if (!timeRegex(raw)) {
+      setInlineError(entries[i], `"${raw}" is not a valid time`);
+      hasInvalid = true;
+      return null;
+    }
+    return renderTimeStr(s);
+  });
+
+  const filled = formatted.filter(f => f !== null);
+
+  if (hasInvalid) {
+    emptyMsg.style.display = '';
+    emptyMsg.textContent = 'One or more times are invalid.';
+    sumDisplay.style.display = 'none';
+    copyBtn.style.display = 'none';
     return;
   }
 
-  const total = parsed.reduce((a,b) => a+b, 0);
-  const dec = Math.max(...vals.map(v => { const np=numPart(v); return np.includes('.')?np.split('.')[1].length:0; }));
-  const rounded = parseFloat(total.toFixed(dec));
-  const result = seconds(String(rounded));
-  const itemList = vals.join(' + ');
-  out.innerHTML = `<div class="output-big">${result}</div><div class="output-detail muted">${itemList}</div>`;
+  if (filled.length < 1) {
+    emptyMsg.style.display = '';
+    emptyMsg.textContent = 'Add at least one time on the left.';
+    sumDisplay.style.display = 'none';
+    copyBtn.style.display = 'none';
+    return;
+  }
+
+  // Any DNF → result is DNF
+  if (filled.some(f => f === 'DNF' || f.startsWith('DNF('))) {
+    const detail = 'DNF = ' + filled.join(' + ');
+    emptyMsg.style.display = 'none';
+    sumDisplay.style.display = '';
+    sumValue.textContent = 'DNF';
+    sumStrEl.textContent = detail;
+    copyBtn.style.display = '';
+    copyBtn.dataset.result = detail;
+    return;
+  }
+
+  // Sum numeric values (+2 adds 2 s)
+  const total = solves.reduce((acc, s) => {
+    const raw = (s.raw || '').trim();
+    if (!raw) return acc;
+    let val = minutes(raw);
+    if (s.penalty === 'p2') val += 2;
+    return acc + val;
+  }, 0);
+
+  // Preserve max decimal precision across all inputs
+  const dec = Math.max(0, ...solves
+    .filter(s => (s.raw || '').trim() && s.penalty !== 'dnf')
+    .map(s => {
+      const secPart = s.raw.includes(':') ? s.raw.split(':')[1] : s.raw;
+      return secPart.includes('.') ? secPart.split('.')[1].length : 0;
+    })
+  );
+
+  const result = seconds(String(parseFloat(total.toFixed(dec))));
+  const detail = result + ' = ' + filled.join(' + ');
+
+  emptyMsg.style.display = 'none';
+  sumDisplay.style.display = '';
+  sumValue.textContent = result;
+  sumStrEl.textContent = detail;
+  copyBtn.style.display = '';
+  copyBtn.dataset.result = detail;
 }
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+const COPY_FLASH_COLOR = '#4a9e6b';
+
+function triggerCopy() {
+  if (copyBtn.style.display === 'none') return;
+  navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
+  const old = copyBtn.textContent;
+  copyBtn.textContent = 'Copied!';
+  copyBtn.style.color = COPY_FLASH_COLOR;
+  copyBtn.style.borderColor = COPY_FLASH_COLOR;
+  setTimeout(() => {
+    copyBtn.textContent = old;
+    copyBtn.style.color = '';
+    copyBtn.style.borderColor = '';
+  }, 1500);
+}
+
+copyBtn.addEventListener('click', triggerCopy);
+
+// Ctrl+C → copy result when nothing is selected
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c') return;
+  if (copyBtn.style.display === 'none') return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    triggerCopy();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+addRow(true);
+addRow(false);
+addRow(false);
 </script>
 </body>
 </html>

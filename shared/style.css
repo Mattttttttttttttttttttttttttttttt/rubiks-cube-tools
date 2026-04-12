@@ -724,7 +724,7 @@ select {
     border-radius: var(--radius);
     padding: 18px;
     font-family: var(--font-mono);
-    flex: 1;
+    flex: 0;
     min-height: 100px;
 }
 
