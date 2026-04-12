@@ -5,17 +5,42 @@
   <title>AoX List — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
+    :root {
+      --best: #ffd500;
+      --worst: #bf6363;
+    }
+    #paste {field-sizing:content;resize:none;min-height:8lh;}
+    .format-badge {
+      font-size:0.72rem;color:#d86074;margin-top:5px;
+      display:flex;align-items:center;gap:5px;
+    }
+    .format-badge::before {
+      content:'';display:inline-block;width:6px;height:6px;
+      border-radius:50%;background:#d86074;flex-shrink:0;
+    }
     .avg-item { display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid var(--border); font-family:var(--font-mono);font-size:0.8rem; }
     .avg-item:last-child{border-bottom:none}
-    .avg-idx{color:var(--text-muted);font-size:0.7rem;width:54px;flex-shrink:0}
-    .avg-val{color:var(--text);flex:1}
+    .avg-idx{color:var(--text-muted);font-size:0.7rem;width:28px;flex-shrink:0;text-align:right}
+    .avg-val{color:#e1e1e1;flex:1;word-break:break-word}
     .avg-val.dnf{color:#c41e3a88}
-    .avg-val.best{color:var(--accent);font-weight:600}
     .avg-val.worst{color:#888}
+    /* solve breakdown spans inside .avg-val */
+    .avg-val .s-trimmed { color:var(--text-muted); }
+    .avg-val .s-fastest { color:var(--best);font-weight:600; }
+    .avg-val .s-normal  { color:var(--text); }
+    .avg-val .s-dnf     { color:#c41e3a88; }
+    .avg-val .avg-result  { color:#b9d9dd;font-weight:600; }
+    .avg-val .avg-result.best  { color:var(--best);font-weight:600; }
+    .avg-val .avg-result.worst { color:var(--worst); }
+    .avg-val .avg-result.dnf   { color:#c41e3a88; }
+    .avg-val .avg-eq { color:var(--text-muted); }
     .summary{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
     .summary-row{display:flex;justify-content:space-between;font-size:0.8rem;padding:3px 0}
-    .summary-key{color:var(--text-muted)}
-    .summary-val{font-family:var(--font-mono);color:var(--accent)}
+    .summary-key{color:var(--text-muted);}
+    .summary-best{font-family:var(--font-mono);color:var(--best);}
+    .summary-worst{font-family:var(--font-mono);color:var(--worst);}
+    .summary-tot{font-family:var(--font-mono);color:var(--text-dim);}
+    #copyBtn{margin-top:14px}
   </style>
 </head>
 <body>
@@ -28,8 +53,9 @@
         <div class="panel-sub">Split a session into all rolling sub-averages</div>
       </div>
       <div class="input-group">
-        <label class="label">cstimer average</label>
-        <textarea id="paste" rows="8" placeholder="Paste full cstimer average here…"></textarea>
+        <label class="label" for="paste">average</label>
+        <textarea id="paste" rows="8" placeholder="Paste a full cstimer average (or comma-separated solves) here…"></textarea>
+        <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
       </div>
       <div class="input-group">
         <label class="label">Sub-average length</label>
@@ -49,19 +75,93 @@
       <div class="scrollable" id="listOut">
         <div class="output-empty">Results will appear here.</div>
       </div>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
     </div>
   </div>
 </div>
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { noBrackets, noMultiphase, minutes, seconds, ndnf, avg, avgCompare, frwrd, numPart } from '../shared/helpers.js';
+import { noBrackets, noMultiphase, minutes, seconds, ndnf, avg, avgStr, avgCompare, frwrd, numPart } from '../shared/helpers.js';
 buildNav('aox');
 
 document.getElementById('goBtn').addEventListener('click', compute);
 document.getElementById('avgLen').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
 
+// ── Format validation ─────────────────────────────────────────────────────────
+function isValidTime(s) {
+  return /^[\d:.]+$/.test(s.trim());
+}
+
+function isCommaSeparatedTimes(text) {
+  const parts = text.split(',').map(s => s.trim()).filter(Boolean);
+  return parts.length > 0 && parts.every(isValidTime);
+}
+
+function isCstimerFormat(text) {
+  return text.includes('avg of') && text.includes('Time List:');
+}
+
+const pasteEl      = document.getElementById('paste');
+const formatBadge  = document.getElementById('formatBadge');
+
+pasteEl.addEventListener('input', () => {
+  const text = pasteEl.value;
+  if (!text.trim()) { formatBadge.style.display = 'none'; return; }
+  const valid = isCstimerFormat(text) || isCommaSeparatedTimes(text);
+  formatBadge.style.display = valid ? 'none' : '';
+});
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+const copyBtn = document.getElementById('copyBtn');
+const COPY_FLASH_COLOR = '#4a9e6b';
+
+function triggerCopy() {
+  if (copyBtn.style.display === 'none') return;
+  navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
+  const old = copyBtn.textContent;
+  copyBtn.textContent = 'Copied!';
+  copyBtn.style.color = COPY_FLASH_COLOR;
+  copyBtn.style.borderColor = COPY_FLASH_COLOR;
+  setTimeout(() => {
+    copyBtn.textContent = old;
+    copyBtn.style.color = '';
+    copyBtn.style.borderColor = '';
+  }, 1500);
+}
+
+copyBtn.addEventListener('click', triggerCopy);
+
+// Ctrl+C → copy result when nothing is selected
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c') return;
+  if (copyBtn.style.display === 'none') return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    triggerCopy();
+  }
+});
+
+// ── Solve span renderer (matches average.html style) ─────────────────────────
+function renderSolveSpans(solves) {
+  return solves.map(s => {
+    const isTrimmed = s.startsWith('(') && s.endsWith(')');
+    const isFastest = s.startsWith('**') && s.endsWith('**');
+    const isDnf     = s.includes('DNF');
+    let cls = 's-normal', inner = s;
+    if (isTrimmed) { cls = 's-trimmed'; }
+    if (isFastest) { inner = s.slice(2, -2); cls = 's-fastest'; }
+    if (isDnf && !isTrimmed) { cls = 's-dnf'; }
+    return `<span class="${cls}">${inner}</span>`;
+  }).join(', ');
+}
+
 function compute() {
-  const raw = document.getElementById('paste').value;
+  const raw = pasteEl.value;
   const errMsg = document.getElementById('errMsg');
   errMsg.textContent = '';
   if (!raw.includes('avg of') || !raw.includes('Time List:')) { errMsg.textContent = 'Paste a valid cstimer average.'; return; }
@@ -80,7 +180,11 @@ function compute() {
   for (let i = 0; i <= LENGTH - n; i++) {
     const slice = frwrd(r, i, n);
     let val = avg(slice, n, decimals);
-    results.push({ start: i+1, end: i+n, val: val === Number.MAX_SAFE_INTEGER ? 'DNF' : val });
+    const display = avgStr(n, slice);
+    results.push({
+      val: val === Number.MAX_SAFE_INTEGER ? 'DNF' : val,
+      display   // { avg: string, solves: string[] }
+    });
   }
 
   // Find best/worst non-DNF
@@ -93,24 +197,36 @@ function compute() {
   if (bestVal !== null) {
     summaryEl.style.display = '';
     summaryEl.className = 'summary';
-    const bestItem = nonDnf.find(x => x.val === bestVal);
-    const worstItem= nonDnf.find(x => x.val === worstVal);
     summaryEl.innerHTML = `
-      <div class="summary-row"><span class="summary-key">Best ao${n}</span><span class="summary-val">${seconds(String(bestVal))}</span></div>
-      <div class="summary-row"><span class="summary-key">Worst ao${n}</span><span class="summary-val" style="color:var(--text-dim)">${seconds(String(worstVal))}</span></div>
-      <div class="summary-row"><span class="summary-key">Total</span><span class="summary-val" style="color:var(--text-dim)">${results.length} rolling averages</span></div>`;
+      <div class="summary-row"><span class="summary-key">Best ao${n}</span><span class="summary-best">${seconds(String(bestVal))}</span></div>
+      <div class="summary-row"><span class="summary-key">Worst ao${n}</span><span class="summary-worst">${seconds(String(worstVal))}</span></div>
+      <div class="summary-row"><span class="summary-key">Total</span><span class="summary-tot">${results.length} rolling averages</span></div>`;
   } else { summaryEl.style.display = 'none'; }
 
   document.getElementById('countLabel').textContent = `${results.length} ao${n}s from ${LENGTH} solves`;
+
   const listOut = document.getElementById('listOut');
-  listOut.innerHTML = results.map(x => {
+  listOut.innerHTML = results.map((x, i) => {
     const isBest  = x.val !== 'DNF' && x.val === bestVal;
     const isWorst = x.val !== 'DNF' && x.val === worstVal && x.val !== bestVal;
     const isDnf   = x.val === 'DNF';
-    const cls = isBest ? 'best' : isWorst ? 'worst' : isDnf ? 'dnf' : '';
-    const display = isDnf ? 'DNF' : seconds(String(x.val));
-    return `<div class="avg-item"><span class="avg-idx">${x.start}–${x.end}</span><span class="avg-val ${cls}">${display}</span></div>`;
+    const rowCls  = isBest ? 'best' : isWorst ? 'worst' : isDnf ? 'dnf' : '';
+    const resCls  = `avg-result${rowCls ? ' ' + rowCls : ''}`;
+    const avgDisp = x.display.avg;
+    const solvesHtml = renderSolveSpans(x.display.solves);
+    return `<div class="avg-item">` +
+      `<span class="avg-idx">${i + 1}</span>` +
+      `<span class="avg-val ${rowCls}">` +
+        `<span class="${resCls}">${avgDisp}</span>` +
+        `<span class="avg-eq"> = </span>` +
+        solvesHtml +
+      `</span>` +
+    `</div>`;
   }).join('');
+
+  // Copy button — unchanged: uses avg() values
+  copyBtn.dataset.result = results.map(x => x.val === 'DNF' ? 'DNF' : seconds(String(x.val))).join(', ');
+  copyBtn.style.display = '';
 }
 </script>
 </body>
