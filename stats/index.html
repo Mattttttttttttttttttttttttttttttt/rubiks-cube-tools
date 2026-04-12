@@ -5,40 +5,23 @@
   <title>Avg Stats — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .zone { padding: 18px 22px; border-bottom: 1px solid var(--border); }
-    .zone-title { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:10px; }
-    #pasteArea { width:100%;min-height:90px;field-sizing: content;resize: none; }
+    /* whole-page scroll — override split's fixed viewport height */
+    .split { height: auto; }
+    .panel { overflow-y: visible; }
+
+    /* textarea override (style.css defaults to resize:vertical) */
+    #pasteArea { field-sizing:content;resize:none;min-height:8lh; }
+
+    /* config layout */
     .config-row { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end; }
     .config-item { display:flex;flex-direction:column;gap:4px; }
-    .config-item label { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-dim); }
-    .config-item input { width:80px; }
-    .tooltip-wrap { position:relative;display:inline-block; }
-    .tooltip-q { display:inline-flex; align-items:center; font-size:0.65rem; color:var(--accent); cursor:help; margin-left:3px; }
-    .tooltip-box {
-      display:none;position:absolute;bottom:calc(100% + 4px);left:0;
-      background:var(--surface-2);border:1px solid var(--border-2);
-      border-radius:var(--radius);padding:8px 10px;
-      font-size:0.75rem;color:var(--text-dim);line-height:1.5;
-      width:230px;z-index:50;white-space:normal;
-    }
-    .tooltip-wrap:hover .tooltip-box { display:block; }
-    .output-cols { display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 22px; }
-    .out-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px; }
-    .out-card h3 { font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-dim);margin-bottom:10px; }
-    .stat-line { display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border); }
-    .stat-line:last-child { border-bottom:none; }
-    .stat-line-key { font-size:0.82rem;color:var(--text); }
-    .stat-line-val { font-family:var(--font-mono);font-size:0.88rem;color:var(--text); }
-    .stat-line-val.hi { color:var(--accent); }
-    .placeholder-out { color:var(--text-dim);font-size:0.85rem;font-style:italic;padding:14px; }
-    .cuts-row { display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end; }
-    .config-section-label {
-      font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
-      color:var(--text-muted);margin-bottom:8px;
-    }
+    .config-item input[type="number"],
+    .config-item input[type="text"] { width:80px; }
+
+    /* recommend button */
     .btn-recommend {
-      align-self:flex-end;
-      padding:9px 10px;
+      align-self:flex-end;padding:9px 10px;
+      font-family:var(--font-mono);
       font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
       background:var(--surface-2);color:var(--text-dim);
       border:1px solid var(--border-2);border-radius:var(--radius);
@@ -46,118 +29,145 @@
       transition:color .15s,border-color .15s;
     }
     .btn-recommend:hover { color:var(--accent);border-color:var(--accent); }
-    @media(max-width:700px){.output-cols{grid-template-columns:1fr}}
+
+    /* output */
+    .output-cols { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+    .out-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px; }
+    .out-card h3 { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:10px; }
+    .stat-line { display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border); }
+    .stat-line:last-child { border-bottom:none; }
+    .stat-line-key { font-size:0.82rem;color:var(--text); }
+    .stat-line-val { font-family:var(--font-mono);font-size:0.88rem;color:var(--text); }
+    .stat-line-val.hi { color:var(--accent); }
+
+    /* copy button */
+    #btnCopy { width:100%;justify-content:center;margin-top:14px;transition:color .15s,border-color .15s; }
+    #btnCopy.flash { color:#4a9e6b !important;border-color:#4a9e6b !important; }
+
+    @media(max-width:700px){ .output-cols { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
 <div id="nav"></div>
-<div class="page" style="overflow-y:auto">
+<div class="page">
+  <div class="split">
 
-  <div class="zone">
-    <div class="zone-title">1 — Paste cstimer average</div>
-    <textarea id="pasteArea" placeholder="Paste your full cstimer average here (including the 'avg of N:' header and Time List)…"></textarea>
-  </div>
-
-  <div class="zone" id="configZone" style="opacity:.35;pointer-events:none">
-    <div class="zone-title">2 — Configure</div>
-
-    <!-- ── +2 toggle ── -->
-    <div class="config-section-label">+2s</div>
-    <div class="config-row">
-      <div class="config-item" style="align-self:flex-start">
-        <label style="display:flex;align-items:center;gap:4px;line-height:1.3">Track +2s
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Enable to see total +2s, un-+2'd average, and how many +2s fall in each cut range.</span>
-          </span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="p2Toggle" checked>
-          <div class="toggle-track"></div>
-          <div class="toggle-thumb"></div>
-        </label>
+    <!-- ── LEFT: inputs ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot"></span>Avg Stats</div>
+        <div class="panel-sub">Paste a cstimer average to see statistics</div>
       </div>
+
+      <div class="input-group">
+        <label class="label" for="pasteArea">cstimer average</label>
+        <textarea id="pasteArea" placeholder="your FULL cstimer average, or a comma-separated list of solves"></textarea>
+      </div>
+
+      <div id="configZone" style="opacity:.35;pointer-events:none">
+
+        <div class="divider"></div>
+        <div class="input-group">
+          <span class="label">+2s</span>
+          <div class="config-row">
+            <div class="config-item" style="align-self:flex-start">
+              <label class="label" style="display:flex;align-items:center;gap:4px">Track +2s
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">Enable to see total +2s, un-+2'd average, and how many +2s fall in each cut range.</span>
+                </span>
+              </label>
+              <label class="toggle">
+                <input type="checkbox" id="p2Toggle" checked>
+                <div class="toggle-track"></div>
+                <div class="toggle-thumb"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="input-group">
+          <span class="label">time cuts (e.g. 1:00.10)</span>
+          <div class="config-row">
+            <div class="config-item">
+              <label class="label" for="cut1">Cut 1
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">I recommend cut 1 to be the fastest solve in your average.</span>
+                </span>
+              </label>
+              <input type="text" id="cut1" placeholder="e.g. 8">
+            </div>
+            <div class="config-item">
+              <label class="label" for="cut2">Cut 2
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">I recommend cut 2 to be something between cut 1 and cut 3, but up to you where you put them.</span>
+                </span>
+              </label>
+              <input type="text" id="cut2" placeholder="e.g. 10">
+            </div>
+            <div class="config-item">
+              <label class="label" for="cut3">Cut 3
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">I recommend cut 3 to be the fastest time you would consider "bad".</span>
+                </span>
+              </label>
+              <input type="text" id="cut3" placeholder="e.g. 1:03">
+            </div>
+            <button class="btn-recommend" id="btnRecommend">
+              Use recommended
+              <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                <span class="tooltip-box">Click to auto-fill cuts based on your average.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="input-group">
+          <span class="label">rolling averages</span>
+          <div class="config-row">
+            <div class="config-item">
+              <label class="label" for="avg1">Avg 1
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">Length of the first rolling average to find best of (e.g. 5 for best rolling ao5).</span>
+                </span>
+              </label>
+              <input type="number" id="avg1" value="5" min="3">
+            </div>
+            <div class="config-item">
+              <label class="label" for="avg2">Avg 2
+                <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+                  <span class="tooltip-box">Length of the second rolling average to find best of (e.g. 12 for best rolling ao12).</span>
+                </span>
+              </label>
+              <input type="number" id="avg2" value="12" min="3">
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /configZone -->
+    </div><!-- /left panel -->
+
+    <!-- ── RIGHT: results ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span class="dot" style="background:#555"></span>Results</div>
+        <div id="resultsSub" class="panel-sub"></div>
+      </div>
+      <div id="outputCols">
+        <p class="output-empty" id="placeholderOut">Paste a valid cstimer average on the left to see stats.</p>
+      </div>
+      <button class="btn btn-ghost" id="btnCopy" style="display:none">Copy results</button>
     </div>
 
-    <div class="divider" style="margin:14px 0"></div>
-
-    <!-- ── Cuts ── -->
-    <div class="config-section-label">time cuts</div>
-    <div class="config-row">
-      <div class="config-item">
-        <label for="cut1">Cut 1
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 1 should be the fastest solve in your average.</span>
-          </span>
-        </label>
-        <input type="text" id="cut1" placeholder="e.g. 8">
-      </div>
-      <div class="config-item">
-        <label for="cut2">Cut 2
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 2 should be something between cut 1 and cut 3, but up to you where you put them.</span>
-          </span>
-        </label>
-        <input type="text" id="cut2" placeholder="e.g. 10">
-      </div>
-      <div class="config-item">
-        <label for="cut3">Cut 3
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Time cuts in seconds or M:SS format (e.g. 63 or 1:03). Cut 3 should be the fastest time you would consider "bad".</span>
-          </span>
-        </label>
-        <input type="text" id="cut3" placeholder="e.g. 1:03">
-      </div>
-      <button class="btn-recommend" id="btnRecommend">
-        Use recommended
-        <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-          <span class="tooltip-box">Click to auto-fill cuts based on your average.</span>
-        </span>
-      </button>
-    </div>
-
-    <div class="divider" style="margin:14px 0"></div>
-
-    <!-- ── Rolling avgs ── -->
-    <div class="config-section-label">rolling averages</div>
-    <div class="config-row">
-      <div class="config-item">
-        <label for="avg1">Avg 1
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Length of the first rolling average to find best of (e.g. 5 for best ao5).</span>
-          </span>
-        </label>
-        <input type="number" id="avg1" value="5" min="3">
-      </div>
-      <div class="config-item">
-        <label for="avg2">Avg 2
-          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
-            <span class="tooltip-box">Length of the second rolling average to find best of (e.g. 12 for best ao12).</span>
-          </span>
-        </label>
-        <input type="number" id="avg2" value="12" min="3">
-      </div>
-    </div>
-  </div>
-
-  <div id="copyBar" style="display:none;border-bottom:1px solid var(--border);padding:10px 22px;align-items:center;gap:12px;background:var(--surface)">
-    <button class="btn btn-secondary" id="btnCopy" style="flex:1;justify-content:center;font-size:0.72rem;letter-spacing:.07em">
-      Copy results
-    </button>
-    <span id="copyConfirm" style="font-size:0.72rem;color:#91df91;opacity:0;transition:opacity .3s;white-space:nowrap">Copied!</span>
-  </div>
-
-  <div class="output-cols" id="outputCols">
-    <div class="placeholder-out" id="placeholderOut" style="grid-column:1/-1">
-      Paste a valid cstimer average above to see stats.
-    </div>
-  </div>
-</div>
+  </div><!-- /split -->
+</div><!-- /page -->
 
 <script type="module">
 import { buildNav } from '../shared/nav.js';
 import {
   noBrackets, noMultiphase, noParen, minutes, seconds,
-  ndnf, ydnf, prths, nprths, keep, findAll, deepjoin,
+  ndnf, ydnf, prths, nprths, findAll, isTimeList,
   frwrd, repeat, avg, avgCompare, roundDecimal, stdev, numPart
 } from '../shared/helpers.js';
 
@@ -174,15 +184,14 @@ const cut3In      = document.getElementById('cut3');
 const avg1In      = document.getElementById('avg1');
 const avg2In      = document.getElementById('avg2');
 const btnRecommend= document.getElementById('btnRecommend');
-const copyBar     = document.getElementById('copyBar');
 const btnCopy     = document.getElementById('btnCopy');
-const copyConfirm = document.getElementById('copyConfirm');
+const resultsSub  = document.getElementById('resultsSub');
 
 let parsed = null;
 let autoRecommended = false;
 let lastStats = null;
 
-// Parse a cut field: accepts "1:03" or plain seconds
+// ── Cut parsing ──────────────────────────────────────────────────────────────
 function parseCut(val) {
   if (!val || !val.trim()) return 0;
   const s = val.trim();
@@ -190,38 +199,23 @@ function parseCut(val) {
   return parseFloat(s) || 0;
 }
 
-// Round to nearest 0.5, but prefer integers (integers win if within 0.25 of value)
-function snapToHalf(v) {
-  const rounded = Math.round(v * 2) / 2;
-  return rounded;
-}
-
-// Format a seconds value for display in cut input fields
-function fmtCut(secs) {
-  return seconds(String(secs));
-}
+function snapToHalf(v) { return Math.round(v * 2) / 2; }
+function fmtCut(secs) { return seconds(String(secs)); }
 
 function recommendCuts(rFloat) {
   const sorted = rFloat.filter(v => v !== 'DNF').slice().sort((a, b) => a - b);
   if (sorted.length < 3) return null;
   const n = sorted.length;
-
-  // Cut 1: largest integer strictly less than fastest solve
   const minVal = sorted[0];
   const cut1 = Number.isInteger(minVal) ? minVal - 1 : Math.floor(minVal);
-
-  // Cut 2: ~20% of solves between cut1 and cut2 → 20th percentile of all solves
   const p20idx = Math.max(0, Math.ceil(n * 0.20) - 1);
   const raw2 = Math.max(sorted[p20idx], cut1 + 0.5);
   let cut2 = snapToHalf(raw2);
   if (cut2 <= cut1) cut2 = snapToHalf(cut1 + 0.5);
-
-  // Cut 3: ~20% of solves above cut3 → 80th percentile
   const p80idx = Math.min(n - 1, Math.floor(n * 0.80));
   const raw3 = Math.max(sorted[p80idx], cut2 + 0.5);
   let cut3 = snapToHalf(raw3);
   if (cut3 <= cut2) cut3 = snapToHalf(cut2 + 0.5);
-
   return { cut1, cut2, cut3 };
 }
 
@@ -233,35 +227,52 @@ function applyRecommended() {
   cut1In.value = fmtCut(cuts.cut1);
   cut2In.value = fmtCut(cuts.cut2);
   cut3In.value = fmtCut(cuts.cut3);
-  if (parsed) compute();
+  compute();
 }
 
 btnRecommend.addEventListener('click', applyRecommended);
 
+// ── Parse ────────────────────────────────────────────────────────────────────
 function tryParse(raw) {
-  if (!raw.includes('avg of') || !raw.includes('Time List:')) return null;
+  console.log("raw: "+raw);
+  if ((!raw.includes('avg of') || !raw.includes('Time List:')) &&
+        !isTimeList(raw)) return null;
   try {
-    const after = raw.trim().split('avg of ')[1];
-    const avgVal = after.split(':')[1]?.split('\n')[0]?.trim();
-    const ao = after.split('Time List:')[1];
-    const timeList = noMultiphase(noBrackets(ao)).split(', ').map(s => s.trim()).filter(Boolean);
+    const cstimer = raw.indexOf("avg of ") > -1;
+    console.log("cstimer: "+cstimer);
+    let ao, avgVal, timeList, length;
+    if (cstimer) {
+      const after = raw.trim().split('avg of ')[1] || raw;
+      const firstLine = after.split('\n')[0];
+      avgVal = firstLine.slice(firstLine.indexOf(':') + 1).trim();
+      console.log("avgVal: "+avgVal);
+      ao = after.split('Time List:')[1];
+      console.log("ao: "+ao);
+    }
+    else ao = raw;
+
+    timeList = noMultiphase(noBrackets(ao)).split(', ').map(s => s.trim()).filter(Boolean);
+    console.log("timeList: "+timeList);
     if (!timeList.length) return null;
+    length = timeList.length;
     const decimals = Math.max(...timeList.map(s => {
       const np = numPart(s);
       return np.includes('.') ? np.split('.')[1].length : 0;
     }));
     const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
-    return { timeList, r, avgVal, decimals, length: timeList.length };
-  } catch { return null; }
+    if (!cstimer) avgVal = avg(r, length, decimals);
+    console.log({ timeList, r, avgVal, decimals, length });
+    return { timeList, r, avgVal, decimals, length };
+  } catch(e) { console.error(e); return null; }
 }
 
 pasteArea.addEventListener('input', () => {
-  if (!(pasteArea.value)) {
+  if (!pasteArea.value) {
     autoRecommended = false;
     cut1In.value = '';
     cut2In.value = '';
     cut3In.value = '';
-    copyBar.style.display = 'none';
+    btnCopy.style.display = 'none';
     lastStats = null;
   }
   parsed = tryParse(pasteArea.value);
@@ -271,12 +282,10 @@ pasteArea.addEventListener('input', () => {
     if (parsed.length >= 12 && !avg2In.dataset.touched) avg2In.value = Math.min(12, parsed.length - 1);
     if (parsed.length < 5)  avg1In.value = '';
     if (parsed.length < 12) avg2In.value = '';
-
-    // Auto-recommend cuts
     if (!autoRecommended) {
       autoRecommended = true;
       applyRecommended();
-      return; // applyRecommended calls compute()
+      return;
     }
     compute();
   } else {
@@ -284,6 +293,7 @@ pasteArea.addEventListener('input', () => {
     configZone.style.pointerEvents = 'none';
     outputCols.innerHTML = '';
     outputCols.appendChild(placeholder);
+    resultsSub.textContent = '';
   }
 });
 
@@ -293,10 +303,70 @@ pasteArea.addEventListener('input', () => {
 });
 avg2In.addEventListener('input', () => avg2In.dataset.touched = '1');
 
+// ── Copy ─────────────────────────────────────────────────────────────────────
+let flashTimeout = null;
+
+function triggerCopy() {
+  if (!lastStats) return;
+  const {
+    length, AVG1, AVG2, PLUS_TWO, CUT3,
+    bestSingle, worstSingle, bestCounting, worstCounting, bestA1, bestA2, sdVal,
+    dnfCount, dstCount, p2Count, unP2Avg,
+    hasCuts, c1Label, c2Label, r1Str, r2Str, above, repStrs
+  } = lastStats;
+  const fmtBest = v => v === null || v === undefined ? null : (v === 'DNF' ? 'DNF' : seconds(String(v)));
+  const lines = ['## stats:', '**comments**: '];
+  lines.push(`**best single:** ${bestSingle}`);
+  lines.push(`**worst single:** ${worstSingle}`);
+  lines.push(`**best counting:** ${bestCounting}`);
+  lines.push(`**worst counting:** ${worstCounting}`);
+  if (AVG1 && bestA1 !== null) lines.push(`**best ao${AVG1}:** ${fmtBest(bestA1)}`);
+  if (AVG2 && bestA2 !== null) lines.push(`**best ao${AVG2}:** ${fmtBest(bestA2)}`);
+  lines.push(`**standard deviation:** ${sdVal}`);
+  lines.push(`**dnfs:** ${dnfCount}`);
+  lines.push(`**didnt start timer dnfs:** ${dstCount}`);
+  if (PLUS_TWO) lines.push(`**+2s:** ${p2Count}`);
+  if (PLUS_TWO && unP2Avg) lines.push(`**un+2ed ao${length}:** ${unP2Avg}`);
+  if (hasCuts) {
+    const pfx = PLUS_TWO ? '+2 to ' : '';
+    lines.push(`**${pfx}${c1Label}:** ${r1Str}`);
+    lines.push(`**${pfx}${c2Label}:** ${r2Str}`);
+    lines.push(`**${seconds(String(CUT3))}+s:** ${above}`);
+  }
+  lines.push('');
+  lines.push(`**repeats:** ${repStrs.length ? repStrs.join(', ') : 'none'}`);
+
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    btnCopy.textContent = 'Copied!';
+    btnCopy.classList.add('flash');
+    clearTimeout(flashTimeout);
+    flashTimeout = setTimeout(() => {
+      btnCopy.textContent = 'Copy results';
+      btnCopy.classList.remove('flash');
+    }, 1500);
+  });
+}
+
+btnCopy.addEventListener('click', triggerCopy);
+
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c' || !lastStats) return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    triggerCopy();
+  }
+});
+
+// ── Render ───────────────────────────────────────────────────────────────────
 function sLine(key, val, hi = false) {
   return `<div class="stat-line">
     <span class="stat-line-key">${key}</span>
-    <span class="stat-line-val ${hi ? 'hi' : ''}">${val ?? '—'}</span>
+    <span class="stat-line-val${hi ? ' hi' : ''}">${val ?? '—'}</span>
   </div>`;
 }
 
@@ -312,16 +382,16 @@ function compute() {
   const rFloat = r.map(s => s === 'DNF' ? 'DNF' : parseFloat(s));
   const nonDnfFloat = rFloat.filter(v => v !== 'DNF');
 
-  const parenSolves = keep(keep(timeList, ndnf), prths).map(s => noParen(s));
-  const firstUnParen = keep(timeList, nprths).find(s => ndnf(s));
+  const parenSolves = timeList.filter((t) => ndnf(t) && prths(t)).map(s => noParen(s));
+  const firstUnParen = timeList.map((t) => nprths(t)).find(s => ndnf(s));
   const firstUnParenVal = firstUnParen ? minutes(noParen(firstUnParen)) : Infinity;
   const betterTrim = parenSolves.filter(s => parseFloat(numPart(s)) < firstUnParenVal).length;
   const worseTrim  = parenSolves.length - betterTrim;
 
-  const allNonDnf = keep(timeList, ndnf);
+  const allNonDnf = timeList.filter((t) => ndnf(t));
   const bestSingle  = allNonDnf.reduce((b, s) => minutes(numPart(s)) < minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
   const worstSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) > minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
-  const counting = keep(keep(timeList, nprths), ndnf);
+  const counting = timeList.filter((t) => ndnf(t) && nprths(t));
   const bestCounting  = counting.reduce((b, s) => minutes(s) < minutes(b) ? s : b, counting[0] ?? '—');
   const worstCounting = counting.reduce((b, s) => minutes(s) > minutes(b) ? s : b, counting[0] ?? '—');
 
@@ -347,18 +417,23 @@ function compute() {
     if (avgVal !== 'DNF' && p2Count > 0) {
       const unplus = timeList.map(s => {
         if (ydnf(s)) return 'DNF';
-        if (s.includes('+')) return String(minutes(noParen(s).slice(0,-1)) - 2);
+        if (s.includes('+')) return String(minutes(noParen(s).slice(0, -1)) - 2);
         return String(minutes(noParen(s)));
       });
       unplus.sort((a, b) => (a === 'DNF' ? Infinity : a) - (b === 'DNF' ? Infinity : b));
       const trimmed = unplus.slice(betterTrim, unplus.length - worseTrim).filter(s => s !== 'DNF');
-      unP2Avg = trimmed.length ? (trimmed.reduce((a, b) => a + parseFloat(b), 0) / trimmed.length).toFixed(decimals) : 'DNF';
+      if (trimmed.length) {
+        const raw = trimmed.reduce((a, b) => a + parseFloat(b), 0) / trimmed.length;
+        unP2Avg = seconds(raw.toFixed(decimals));
+      } else {
+        unP2Avg = 'DNF';
+      }
     }
   }
 
   const hasCuts = CUT1 || CUT2 || CUT3;
-  const c1Label = (CUT2 - CUT1 === 1) ? `${seconds(String(CUT1))}` : `${seconds(String(CUT1))} – ${seconds(String(CUT2))}`;
-  const c2Label = (CUT3 - CUT2 === 1) ? `${seconds(String(CUT2))}` : `${seconds(String(CUT2))} – ${seconds(String(CUT3))}`;
+  const c1Label = (CUT2 - CUT1 === 1) ? seconds(String(CUT1)) : `${seconds(String(CUT1))} – ${seconds(String(CUT2))}`;
+  const c2Label = (CUT3 - CUT2 === 1) ? seconds(String(CUT2)) : `${seconds(String(CUT2))} – ${seconds(String(CUT3))}`;
   const inR1 = rFloat.filter(v => v !== 'DNF' && v > CUT1 && v < CUT2).length;
   const inR2 = rFloat.filter(v => v !== 'DNF' && v > CUT2 && v < CUT3).length;
   const above = rFloat.filter(v => v !== 'DNF' && v >= CUT3).length;
@@ -372,83 +447,46 @@ function compute() {
   const reps = repeat(rFloat);
   const repStrs = Object.entries(reps).map(([v, c]) => `${c > 2 ? c + ' ' : ''}${v}${c > 2 ? 's' : ''}`);
 
-  // Store for copy
   lastStats = {
     length, decimals, avgVal, AVG1, AVG2, PLUS_TWO, CUT1, CUT2, CUT3,
     bestSingle: noParen(bestSingle), worstSingle: noParen(worstSingle),
     bestCounting, worstCounting, bestA1, bestA2, sdVal,
     dnfCount, dstCount, p2Count, unP2Avg,
-    hasCuts, c1Label, c2Label, r1Str, r2Str, above,
-    repStrs
+    hasCuts, c1Label, c2Label, r1Str, r2Str, above, repStrs
   };
-  copyBar.style.display = 'flex';
+
+  btnCopy.style.display = '';
+  resultsSub.textContent = `ao${length}: ${avgVal}`;
 
   placeholder.remove();
   outputCols.innerHTML = `
-    <div class="out-card">
-      <h3>Bests &amp; Bads</h3>
-      ${sLine('Best single',    noParen(bestSingle),  true)}
-      ${sLine('Worst single',   noParen(worstSingle))}
-      ${sLine('Best counting',  bestCounting)}
-      ${sLine('Worst counting', worstCounting)}
-      ${AVG1 && bestA1 !== null ? sLine(`Best ao${AVG1}`, bestA1 === 'DNF' ? 'DNF' : bestA1 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA1)) : 'DNF', true) : ''}
-      ${AVG2 && bestA2 !== null ? sLine(`Best ao${AVG2}`, bestA2 === 'DNF' ? 'DNF' : bestA2 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA2)) : 'DNF', true) : ''}
-      ${sLine('Std deviation',  sdVal)}
-    </div>
-    <div class="out-card">
-      <h3>Distribution</h3>
-      ${sLine('DNFs',              dnfCount)}
-      ${sLine('Didn\'t start timer',     dstCount)}
-      ${PLUS_TWO ? sLine('+2s', p2Count) : ''}
-      ${PLUS_TWO && unP2Avg ? sLine(`Un-+2'd ao${length}`, unP2Avg) : ''}
-      ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c1Label}`, r1Str) : ''}
-      ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c2Label}`, r2Str) : ''}
-      ${hasCuts ? sLine(`${seconds(String(CUT3))}+`, above) : ''}
-      <div class="stat-line" style="flex-direction:column;align-items:flex-start;gap:4px">
-        <span class="stat-line-key">Repeats:</span>
-        <span class="stat-line-val" style="font-size:0.82rem">${repStrs.length ? repStrs.join(', ') : 'none'}</span>
+    <div class="output-cols">
+      <div class="out-card">
+        <h3>Bests &amp; Worsts</h3>
+        ${sLine('Best single',    noParen(bestSingle),  true)}
+        ${sLine('Worst single',   noParen(worstSingle))}
+        ${sLine('Best counting',  bestCounting)}
+        ${sLine('Worst counting', worstCounting)}
+        ${AVG1 && bestA1 !== null ? sLine(`Best ao${AVG1}`, bestA1 === 'DNF' ? 'DNF' : bestA1 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA1)) : 'DNF', true) : ''}
+        ${AVG2 && bestA2 !== null ? sLine(`Best ao${AVG2}`, bestA2 === 'DNF' ? 'DNF' : bestA2 !== Number.MAX_SAFE_INTEGER ? seconds(String(bestA2)) : 'DNF', true) : ''}
+        ${sLine('Std deviation', sdVal)}
+      </div>
+      <div class="out-card">
+        <h3>Distribution</h3>
+        ${sLine('DNFs',                dnfCount)}
+        ${sLine("Didn't start timer",  dstCount)}
+        ${PLUS_TWO ? sLine('+2s', p2Count) : ''}
+        ${PLUS_TWO && unP2Avg ? sLine(`Un-+2'd ao${length}`, unP2Avg) : ''}
+        ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c1Label}`, r1Str) : ''}
+        ${hasCuts ? sLine(`${PLUS_TWO ? '+2 to ' : ''}${c2Label}`, r2Str) : ''}
+        ${hasCuts ? sLine(`${seconds(String(CUT3))}+`, above) : ''}
+        <div class="stat-line" style="flex-direction:column;align-items:flex-start;gap:4px">
+          <span class="stat-line-key">Repeats:</span>
+          <span class="stat-line-val" style="font-size:0.82rem">${repStrs.length ? repStrs.join(', ') : 'none'}</span>
+        </div>
       </div>
     </div>`;
 }
-btnCopy.addEventListener('click', () => {
-  if (!lastStats) return;
-  const {
-    length, decimals, AVG1, AVG2, PLUS_TWO, CUT1, CUT2, CUT3,
-    bestSingle, worstSingle, bestCounting, worstCounting, bestA1, bestA2, sdVal,
-    dnfCount, dstCount, p2Count, unP2Avg,
-    hasCuts, c1Label, c2Label, r1Str, r2Str, above,
-    repStrs
-  } = lastStats;
-
-  const fmtBest = v => (v === null || v === undefined) ? null
-    : (v === 'DNF' ? 'DNF' : seconds(String(v)));
-
-  const lines = ['## stats:', '**comments**: '];
-  lines.push(`**best single:** ${bestSingle}`);
-  lines.push(`**worst single:** ${worstSingle}`);
-  lines.push(`**best counting:** ${bestCounting}`);
-  lines.push(`**worst counting:** ${worstCounting}`);
-  if (AVG1 && bestA1 !== null) lines.push(`**best ao${AVG1}:** ${fmtBest(bestA1)}`);
-  if (AVG2 && bestA2 !== null) lines.push(`**best ao${AVG2}:** ${fmtBest(bestA2)}`);
-  lines.push(`**standard deviation:** ${sdVal}`);
-  lines.push(`**dnfs:** ${dnfCount}`);
-  lines.push(`**didnt start timer dnfs:** ${dstCount}`);
-  if (PLUS_TWO) lines.push(`**+2s:** ${p2Count}`);
-  if (PLUS_TWO && unP2Avg) lines.push(`**un+2ed ao${length}:** ${unP2Avg}`);
-  if (hasCuts) {
-    const pfx = PLUS_TWO ? '+2 to ' : '';
-    lines.push(`**${pfx}${c1Label}:** ${r1Str}`);
-    lines.push(`**${pfx}${c2Label}:** ${r2Str}`);
-    lines.push(`**${seconds(String(CUT3))}+s:** ${above}`);
-  }
-  lines.push('');
-  lines.push(`**repeats:** ${repStrs.length ? repStrs.join(', ') : 'none'}`);
-
-  navigator.clipboard.writeText(lines.join('\n')).then(() => {
-    copyConfirm.style.opacity = '1';
-    setTimeout(() => copyConfirm.style.opacity = '0', 1800);
-  });
-});
 </script>
 </body>
 </html>

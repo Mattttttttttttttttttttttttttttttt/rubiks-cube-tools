@@ -2,28 +2,58 @@
 // All functions exported as named exports for ES module usage
 
 export function numPart(time) {
+  /**
+   * extracts the decimal part of a string
+   * @param {string} time - string to be extracted
+   * @returns {string} decimal in string, minutes converted to seconds
+   */
   return [...String(time)].filter(c => /[\d.:]/.test(c)).join('');
 }
 
 export function noBrackets(time) {
+  /**
+   * get rid of the bracket part in the input string
+   * @param {string} time - the string to be processed
+   * @returns {string} the resultant string without the bracket part
+   */
   return String(time).replace(/\[.*?\]/g, '');
 }
 
 export function noMultiphase(time) {
+  /**
+   * get rid of the equal sign part in the input string
+   * @param {string} time - the string to be processed
+   * @returns {string} the resultant string without the equal sign part
+   */
   let r = String(time).replace(/=.*?,/g, ',');
   return r.replace(/=.*?$/gm, '');
 }
 
 export function noParen(time) {
+  /**
+   * get rid of the parentheses part in the input string
+   * @param {string} time - the string to be processed
+   * @returns {string} the resultant string without the parentheses part
+   */
   return String(time).replace(/[()]/g, '');
 }
 
 export function validNum(num) {
+  /**
+   * adds 0 before a one-digit number
+   * @param {number} num - number to be modified
+   * @returns {string} the resultant string
+   */
   const s = String(num);
   return s.split('.')[0].length === 1 && !s.startsWith('-') ? '0' + s : s;
 }
 
 export function minutes(a) {
+  /**
+   * used for the min and max function to convert min:sec into seconds
+   * @param {string|number} a - the time in a string
+   * @returns {number} the converted time in seconds
+   */
   if (typeof a === 'number' && !isNaN(a)) return a;
   const s = String(a);
   if (s.includes('DNF')) return Number.MAX_SAFE_INTEGER;
@@ -37,6 +67,11 @@ export function minutes(a) {
 }
 
 export function seconds(a) {
+  /**
+   * converts a potential min:sec in string or float back to a min:sec string
+   * @param {string|number} a - the string or integer to be converted (e.g. 60.67)
+   * @returns {string} a string of min:sec or the original float
+   */
   if (a === 'DNF') return 'DNF';
   const str = String(a);
   const hasPlus = str.endsWith('+');
@@ -54,29 +89,82 @@ export function seconds(a) {
 }
 
 export function ndnf(a) {
+  /**
+   * filters out dnfs
+   * @param {string|*} a - the solve
+   * @returns {boolean} whether it's a dnf
+   */
   return typeof a === 'string' ? !a.includes('DNF') : true;
 }
+
 export function ydnf(a) {
+  /**
+   * filters out non-dnfs
+   * @param {string|*} a - the solve
+   * @returns {boolean} whether it's a non-dnf
+  */
   return typeof a === 'string' ? a.includes('DNF') : false;
 }
-export function prths(a)  { return String(a)[0] === '('; }
-export function nprths(a) { return String(a)[0] !== '('; }
 
-export function keep(thing, fn) { return thing.filter(fn); }
+export function prths(a) {
+  /**
+   * used for the keep function to keep all solves with parentheses
+   * @param {string} a - the string to be analyzed
+   * @returns {boolean} whether a starts with a parenthese
+   */
+  return String(a)[0] === '(';
+}
+
+export function nprths(a) {
+  /**
+   * used for the keep function to keep all solves without parentheses
+   * @param {string} a - the string to be analyzed
+   * @returns {boolean} whether a starts without a parenthese
+   */
+  return String(a)[0] !== '(';
+}
 
 export function findAll(parent, daughter) {
+  /**
+   * count how many substrings is present in the parent string
+   * @param {string|Array} parent - the parent string to search in
+   * @param {string} daughter - the substring needing to be searched
+   * @returns {number} the count of how many substrings is present
+   */
   const s = Array.isArray(parent) ? parent.join('') : String(parent);
   let count = 0, idx = 0;
   while ((idx = s.indexOf(daughter, idx)) !== -1) { count++; idx += daughter.length; }
   return count;
 }
 
-export function deepjoin(lst, joiner) { return lst.map(String).join(joiner); }
+export function deepjoin(lst, joiner) {
+  /**
+   * returns a list converted into strs and joined with joiner
+   * @param {Array} lst - the list to be joined
+   * @param {string} joiner - the connector between elements
+   * @returns {string} the resultant string
+   */
+  return lst.map(String).join(joiner);
+}
 
-export function frwrd(lst, start, value) { return lst.slice(start, start + value); }
+export function frwrd(lst, start, value) {
+  /**
+   * returns a list of *value* values frwrd in *lst* starting at *start* index
+   * @param {Array} lst - list to be processed
+   * @param {number} start - starting index
+   * @param {number} value - number of values to go
+   * @returns {Array} processed list
+   */
+  return lst.slice(start, start + value);
+}
 
 export function repeat(lst) {
-  const sorted = [...keep(lst, ndnf)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  /**
+   * checks for any repeat in the list
+   * @param {Array} lst - the list to be processed
+   * @returns {Object} a dictionary of repeat to the number of times it appeared
+   */
+  const sorted = [...lst.filter(ndnf)].sort((a, b) => parseFloat(a) - parseFloat(b));
   const result = {};
   let i = 0;
   while (i < sorted.length) {
@@ -108,6 +196,13 @@ function trimArr(arr) {
 }
 
 export function avg(solves, numSolves, decimals = 0) {
+  /**
+   * returns average of num_solves
+   * @param {Array<string>} solves - solves in seconds with DNFs as DNFs
+   * @param {number} numSolves - the length of the average
+   * @param {number} [decimals=0] - the amount of decimals, if not provided, no rounding will be done
+   * @returns {number|string} average value
+   */
   if (numSolves <= 2) throw new Error('avg requires >= 3 solves');
   const delete_ = Math.floor(numSolves / 20) + 1;
 
@@ -129,10 +224,21 @@ export function avg(solves, numSolves, decimals = 0) {
 }
 
 export function avgCompare(time) {
+  /**
+   * compares averages
+   * @param {string|number} time - the avg
+   * @returns {number} the interpretation
+   */
   return time === 'DNF' ? Number.MAX_SAFE_INTEGER : time;
 }
 
 export function roundDecimal(solves, avgVal) {
+  /**
+   * rounds the avg of solves to the maximum decimal present in the solves
+   * @param {Array} solves - the list of solves
+   * @param {string} avgVal - a string of the time of the average
+   * @returns {string} a rounded string of the time of the average
+   */
   if (avgVal === 'DNF') return 'DNF';
   let decimals = Math.max(...solves.map(s => {
     const np = numPart(s);
@@ -229,6 +335,19 @@ export function avgStr(num, solvesIn) {
   const avgVal = roundDecimal(solvesIn, seconds(String(avg(rawVals, num))));
   for (let i = 0; i < delete_; i++) addParenthese(copy, solves);
   return { avg: avgVal, solves };
+}
+
+export function isTimeList(ts) {
+  /**
+   * check whether the string given is a comma-separated time list
+   * @param {string} ts - the string to be checked
+   * @returns {boolean} - whether it's a comma-separated time list
+   */
+  return (ts.split(",").map(
+    (t) => /^[0-9.()DNFdnf+:]+$/.test(
+      t?.trim()?.replaceAll(/\[.*?\]/g, "")
+    )).every()
+  );
 }
 
 // ── Stats Calculator ─────────────────────────────────────────────────────────

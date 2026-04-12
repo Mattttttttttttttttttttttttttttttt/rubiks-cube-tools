@@ -5,10 +5,30 @@
   <title>Sub-X Count — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .big-result{font-family:var(--font-mono);font-size:3.5rem;font-weight:600;color:var(--accent);letter-spacing:-0.04em;line-height:1;margin:28px 0 8px}
+    :root {
+      --best: #ffd500;
+    }
+    .big-result{font-family:var(--font-mono);font-size:3.5rem;font-weight:600;letter-spacing:-0.04em;line-height:1;margin:28px 0 8px}
     .big-sub{font-size:0.8rem;color:var(--text-dim)}
     .bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);height:8px;overflow:hidden;margin-top:20px}
-    .bar-fill{height:100%;background:var(--accent);border-radius:var(--radius);transition:width 0.4s}
+    .bar-fill{height:100%;border-radius:var(--radius);transition:width 0.4s, background 0.4s}
+    #paste{field-sizing:content;resize:none;min-height:8lh;}
+    .format-badge{
+      font-size:0.72rem;color:#d86074;margin-top:5px;
+      display:flex;align-items:center;gap:5px;
+    }
+    .format-badge::before{
+      content:'';display:inline-block;width:6px;height:6px;
+      border-radius:50%;background:#d86074;flex-shrink:0;
+    }
+    .field-note{
+      font-size:0.72rem;color:#c89a3a;margin-top:5px;
+      display:flex;align-items:center;gap:5px;
+    }
+    .field-note::before{
+      content:'';display:inline-block;width:6px;height:6px;
+      border-radius:50%;background:#c89a3a;flex-shrink:0;
+    }
   </style>
 </head>
 <body>
@@ -18,16 +38,27 @@
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title"><span class="dot"></span>Sub-X Count</div>
-        <div class="panel-sub">Count how many times are under a cutoff</div>
+        <div class="panel-sub">Count how many times (or rolling averages) are under a cutoff</div>
       </div>
       <div class="input-group">
-        <label class="label">Time list (comma-separated, cstimer format ok)</label>
-        <textarea id="paste" rows="10" placeholder="Paste your times here — can be raw comma-separated, or the Time List section from cstimer. Brackets, +2s, and DNFs are handled."></textarea>
+        <label class="label">Time list</label>
+        <textarea id="paste" rows="10" placeholder="a cstimer average, or a comma-separated list of times"></textarea>
+        <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
       </div>
       <div class="input-group">
-        <label class="label">Cutoff (seconds)</label>
+        <label class="label">
+          Rolling average length <span style="color:var(--text-muted);font-weight:400">(optional)</span>
+          <span class="tooltip-wrap"><span class="tooltip-q">?</span>
+            <span class="tooltip-box">Entering a value here will first calculate a list of all the rolling averages within your time list (like the ao-x tool does). Then, that list gets passed into the subx calculator to calculate the number of rolling averages that are sub x.</span>
+          </span>
+        </label>
+        <input type="number" id="aoxLen" min="1" placeholder="e.g. 5 (leave blank to skip)">
+        <div id="aoxErrBadge" class="format-badge" style="display:none"></div>
+      </div>
+      <div class="input-group">
+        <label class="label">Cutoff</label>
         <div class="row">
-          <input type="number" id="cutoff" step="0.001" placeholder="e.g. 9.5" style="width:110px">
+          <input type="text" id="cutoff" placeholder="e.g. 1:00.1" style="width:110px">
           <button class="btn btn-primary" id="goBtn">Count</button>
         </div>
         <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px"></div>
@@ -39,6 +70,7 @@
         <div class="big-sub" id="pct"></div>
         <div class="bar-wrap"><div class="bar-fill" id="barFill" style="width:0"></div></div>
         <div class="big-sub" style="margin-top:10px" id="cutLabel"></div>
+        <div class="big-sub" id="aoxLabel"></div>
       </div>
       <div class="output-empty" id="emptyMsg">Paste times and set a cutoff to count.</div>
     </div>
@@ -46,32 +78,137 @@
 </div>
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { noBrackets, noMultiphase, minutes, ndnf, numPart } from '../shared/helpers.js';
+import { noBrackets, noMultiphase, minutes, seconds, ndnf, numPart, avg, avgCompare, frwrd } from '../shared/helpers.js';
 buildNav('subx');
 
+// ── Format validation ─────────────────────────────────────────────────────────
+function isValidTime(s) {
+  return /^[\d:.]+\+?$/.test(s.trim());
+}
+function isCommaSeparatedTimes(text) {
+  const parts = text.split(',').map(s => s.trim()).filter(Boolean);
+  return parts.length > 0 && parts.every(isValidTime);
+}
+function isCstimerFormat(text) {
+  return text.includes('avg of') && text.includes('Time List:');
+}
+
+const pasteEl     = document.getElementById('paste');
+const formatBadge = document.getElementById('formatBadge');
+
+pasteEl.addEventListener('input', () => {
+  const text = pasteEl.value;
+  if (!text.trim()) { formatBadge.style.display = 'none'; return; }
+  const valid = isCstimerFormat(text) || isCommaSeparatedTimes(text);
+  formatBadge.style.display = valid ? 'none' : '';
+});
+
+// ── AoX badge ────────────────────────────────────────────────────────────────
+const aoxLenEl    = document.getElementById('aoxLen');
+const aoxErrBadge = document.getElementById('aoxErrBadge');
+
+aoxLenEl.addEventListener('input', () => {
+  const v = aoxLenEl.value.trim();
+  if (!v) { aoxErrBadge.style.display = 'none'; return; }
+  const n = parseInt(v);
+  if (n === 1) {
+    aoxErrBadge.textContent = 'This does nothing — rolling average of 1 is each solve itself';
+    aoxErrBadge.style.display = '';
+  } else if (isNaN(n) || n <= 0 || n === 2) {
+    aoxErrBadge.textContent = 'Minimum rolling average length is 3';
+    aoxErrBadge.style.display = '';
+  } else {
+    aoxErrBadge.style.display = 'none';
+  }
+});
+
+// ── Compute ───────────────────────────────────────────────────────────────────
 document.getElementById('goBtn').addEventListener('click', compute);
 document.getElementById('cutoff').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
 
 function compute() {
   const errMsg = document.getElementById('errMsg');
   errMsg.textContent = '';
-  let raw = document.getElementById('paste').value.trim();
-  const cut = parseFloat(document.getElementById('cutoff').value);
+
+  let raw = pasteEl.value.trim();
+  const cutRaw = document.getElementById('cutoff').value.trim();
+
   if (!raw) { errMsg.textContent = 'Paste some times first.'; return; }
-  if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff in seconds.'; return; }
+  if (!cutRaw) { errMsg.textContent = 'Enter a cutoff.'; return; }
+
+  // Parse cutoff via minutes() so "1:03" works
+  const cut = minutes(cutRaw);
+  if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff (e.g. 9.5 or 1:03).'; return; }
 
   // Strip cstimer header if present
   if (raw.includes('Time List:')) raw = raw.split('Time List:')[1];
-  const timeList = noMultiphase(noBrackets(raw)).split(',').map(s => s.trim()).filter(Boolean);
-  const r = timeList.map(s => ndnf(s) ? minutes(numPart(s)) : Number.MAX_SAFE_INTEGER);
-  const subCount = r.filter(v => v < cut).length;
-  const total = r.length;
-  const pct = total > 0 ? ((subCount/total)*100).toFixed(1) : 0;
+  let timeList = noMultiphase(noBrackets(raw)).split(',').map(s => s.trim()).filter(Boolean);
 
-  document.getElementById('fraction').textContent = `${subCount}/${total}`;
-  document.getElementById('pct').textContent = `${pct}% sub-${cut}s`;
-  document.getElementById('cutLabel').textContent = `Cutoff: ${cut} seconds`;
-  document.getElementById('barFill').style.width = pct + '%';
+  // ── Optional AoX pre-step ─────────────────────────────────────────────────
+  const aoxRaw = aoxLenEl.value.trim();
+  let aoxApplied = false;
+  let aoxLabelText = '';
+
+  if (aoxRaw !== '') {
+    const n = parseInt(aoxRaw);
+    if (isNaN(n) || n <= 0 || n === 2) {
+      errMsg.textContent = 'Minimum rolling average length is 3.';
+      return;
+    }
+    if (n >= timeList.length) {
+      errMsg.textContent = `Rolling average length must be less than session length (${timeList.length}).`;
+      return;
+    }
+
+    if (n > 1) {
+      // Compute rolling averages
+      const decimals = Math.max(...timeList.map(s => {
+        const np = numPart(s);
+        return np.includes('.') ? np.split('.')[1].length : 0;
+      }));
+      const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
+      const rolled = [];
+      for (let i = 0; i <= r.length - n; i++) {
+        const slice = frwrd(r, i, n);
+        const val = avg(slice, n, decimals);
+        rolled.push(val === Number.MAX_SAFE_INTEGER ? 'DNF' : seconds(String(val)));
+      }
+      timeList = rolled;
+      aoxApplied = true;
+      aoxLabelText = `Computed over ${timeList.length} rolling ao${n}s`;
+    }
+    // n === 1: do nothing, proceed with original list
+  }
+
+  // ── Sub-X count ───────────────────────────────────────────────────────────
+  const vals = timeList.map(s => {
+    if (typeof s === 'string' && s.includes('DNF')) return Number.MAX_SAFE_INTEGER;
+    return minutes(numPart(String(s)));
+  });
+  const subCount = vals.filter(v => v < cut).length;
+  const total = vals.length;
+  const pct = total > 0 ? (subCount / total) * 100 : 0;
+  const pctFixed = pct.toFixed(1);
+
+  // Color: below half → --accent, above half → --best
+  const isAboveHalf = pct > 50;
+  const color = isAboveHalf ? 'var(--best)' : 'var(--accent)';
+
+  const fractionEl = document.getElementById('fraction');
+  fractionEl.style.color = color;
+  fractionEl.textContent = `${subCount}/${total}`;
+
+  document.getElementById('pct').textContent = `${pctFixed}% sub-${seconds(String(cut))}`;
+
+  const barFill = document.getElementById('barFill');
+  barFill.style.width = pct + '%';
+  barFill.style.background = color;
+
+  document.getElementById('cutLabel').textContent = `Cutoff: ${seconds(String(cut))}`;
+
+  const aoxLabelEl = document.getElementById('aoxLabel');
+  aoxLabelEl.textContent = aoxApplied ? aoxLabelText : '';
+
   document.getElementById('result').style.display = '';
   document.getElementById('emptyMsg').style.display = 'none';
 }
