@@ -78,6 +78,15 @@
     .output-avg-str .s-dnf     { color: var(--accent); }
     #copyBtn { margin-top: 14px; }
 
+    #copyBtn { margin-top: 14px; }
+    #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
+    .btn kbd {
+      font-family: var(--font-mono); font-size: 0.6em;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
+      letter-spacing: 0; font-weight: 400; text-transform: none;
+    }
+
     .drop-indicator {
       position: absolute; left: 0; right: 0; height: 2px;
       background: var(--accent); box-shadow: 0 0 8px var(--accent);
@@ -96,6 +105,7 @@
           <div class="panel-title"><span class="dot"></span>Average Generator</div>
           <div class="panel-sub">Enter solves — live output on the right</div>
         </div>
+        <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
         <div id="solveList" class="solve-list"></div>
         <div class="mt-16">
           <button class="btn btn-ghost" id="addRowBtn">+ Add solve</button>
@@ -129,6 +139,11 @@ buildNav('average');
 // ── State ─────────────────────────────────────────────────────────────────────
 let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
 let dragState = null;
+let undoMode = false;
+let suppressSave = false;
+const STORAGE_KEY = 'cube-tool-solves';
+const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
+const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const solveList  = document.getElementById('solveList');
@@ -137,6 +152,7 @@ const avgDisplay = document.getElementById('avgDisplay');
 const avgValue   = document.getElementById('avgValue');
 const avgStrEl   = document.getElementById('avgStr');
 const copyBtn    = document.getElementById('copyBtn');
+const resetBtn   = document.getElementById('resetBtn');
 
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
@@ -405,6 +421,62 @@ function addRow(focusNew = true) {
   recompute();
 }
 
+// ── Storage & undo ────────────────────────────────────────────────────────────
+function serializeSolves() {
+  return [...solveList.querySelectorAll('.solve-field')]
+    .map(f => f.value.trim()).filter(Boolean).join(', ');
+}
+
+function saveToStorage() {
+  if (suppressSave) return;
+  if (undoMode) exitUndoMode();
+  localStorage.setItem(STORAGE_KEY, serializeSolves());
+}
+
+function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
+function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+
+function parseSolveStr(v) {
+  v = v.trim(); if (!v) return null;
+  const d = parseDnfInput(v);
+  if (d !== null) return { raw: d.raw, penalty: 'dnf' };
+  if (v.endsWith('+')) {
+    const base = v.slice(0, -1).trim();
+    if (timeRegex(base)) return { raw: base, penalty: 'p2' };
+  }
+  return { raw: v, penalty: null };
+}
+
+function restoreFromStorage() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  const parts  = stored ? stored.split(',').map(p => p.trim()).filter(Boolean) : [];
+  const parsed = parts.map(parseSolveStr).filter(Boolean);
+  suppressSave = true;
+  solves = []; solveList.innerHTML = '';
+  if (parsed.length) {
+    parsed.forEach(s => { solves.push(s); solveList.appendChild(createEntryEl(solves.length - 1)); });
+    updateRemoveBtns(); recompute();
+  } else { addRow(true); }
+  suppressSave = false;
+}
+
+function triggerReset() {
+  if (undoMode) return;
+  suppressSave = true;
+  solves = []; solveList.innerHTML = '';
+  addRow(true);
+  suppressSave = false;
+  enterUndoMode();
+}
+
+function triggerUndo() {
+  if (!undoMode) return;
+  suppressSave = true; restoreFromStorage(); suppressSave = false;
+  exitUndoMode();
+}
+
+resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
+
 // ── Drag-to-reorder ───────────────────────────────────────────────────────────
 function startDrag(e, entryEl) {
   if (dragState) return;
@@ -527,7 +599,7 @@ function recompute() {
     emptyMsg.textContent = 'One or more solves are invalid.';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
-    return;
+    saveToStorage(); return;
   }
 
   if (filled.length < 3) {
@@ -538,7 +610,7 @@ function recompute() {
     emptyMsg.textContent = filled.length >= 1
       ? `${needed} more solve${needed !== 1 ? 's' : ''} needed`
       : 'Add at least 3 solves to see the average.';
-    return;
+    saveToStorage(); return;
   }
 
   try {
@@ -561,11 +633,13 @@ function recompute() {
     avgStrEl.innerHTML = result.avg + ' = ' + parts.join(', ');
     copyBtn.style.display = '';
     copyBtn.dataset.result = result.avg + ' = ' + result.solves.join(', ');
+    saveToStorage();
   } catch(err) {
     emptyMsg.style.display = '';
     emptyMsg.textContent = 'Could not compute average.';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
+    saveToStorage();
   }
 }
 
@@ -588,8 +662,10 @@ function triggerCopy() {
 
 copyBtn.addEventListener('click', triggerCopy);
 
-// Ctrl+C → copy result when nothing is selected
+// Ctrl+C → copy result when nothing is selected; Shift+Esc → reset; Ctrl+Z → undo
 document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'Escape') { e.preventDefault(); triggerReset(); return; }
+  if (e.ctrlKey && e.key === 'z') { if (undoMode) { e.preventDefault(); triggerUndo(); } return; }
   if (!e.ctrlKey || e.key !== 'c') return;
   if (copyBtn.style.display === 'none') return;
   const active = document.activeElement;
@@ -604,7 +680,13 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-addRow(true);
+if (localStorage.getItem(STORAGE_KEY)) {
+  restoreFromStorage();
+} else {
+  suppressSave = true;
+  addRow(true);
+  suppressSave = false;
+}
 </script>
 </body>
 </html>

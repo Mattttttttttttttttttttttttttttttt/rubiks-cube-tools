@@ -43,6 +43,13 @@
     /* copy button */
     #btnCopy { width:100%;justify-content:center;margin-top:14px;transition:color .15s,border-color .15s; }
     #btnCopy.flash { color:#4a9e6b !important;border-color:#4a9e6b !important; }
+    #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
+    .btn kbd {
+      font-family: var(--font-mono); font-size: 0.6em;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
+      letter-spacing: 0; font-weight: 400; text-transform: none;
+    }
 
     @media(max-width:700px){ .output-cols { grid-template-columns:1fr; } }
   </style>
@@ -58,6 +65,8 @@
         <div class="panel-title"><span class="dot"></span>Avg Stats</div>
         <div class="panel-sub">Paste a cstimer average to see statistics</div>
       </div>
+
+      <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
 
       <div class="input-group">
         <label class="label" for="pasteArea">cstimer average</label>
@@ -167,7 +176,7 @@
 import { buildNav } from '../shared/nav.js';
 import {
   noBrackets, noMultiphase, noParen, minutes, seconds,
-  ndnf, ydnf, prths, nprths, findAll, isTimeList,
+  ndnf, ydnf, prths, nprths, findAll, isTimeList, parsePaste,
   frwrd, repeat, avg, avgCompare, roundDecimal, stdev, numPart
 } from '../shared/helpers.js';
 
@@ -190,6 +199,31 @@ const resultsSub  = document.getElementById('resultsSub');
 let parsed = null;
 let autoRecommended = false;
 let lastStats = null;
+let undoMode = false;
+const STORAGE_KEY = 'cube-tool-solves';
+const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
+const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
+const resetBtn = document.getElementById('resetBtn');
+
+function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
+function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+
+function triggerReset() {
+  if (undoMode) return;
+  // save current content before wiping
+  localStorage.setItem(STORAGE_KEY, pasteArea.value);
+  pasteArea.value = '';
+  pasteArea.dispatchEvent(new Event('input'));
+  enterUndoMode();
+}
+function triggerUndo() {
+  if (!undoMode) return;
+  const stored = localStorage.getItem(STORAGE_KEY) ?? '';
+  pasteArea.value = stored;
+  pasteArea.dispatchEvent(new Event('input'));
+  exitUndoMode();
+}
+resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
 
 // ── Cut parsing ──────────────────────────────────────────────────────────────
 function parseCut(val) {
@@ -233,39 +267,6 @@ function applyRecommended() {
 btnRecommend.addEventListener('click', applyRecommended);
 
 // ── Parse ────────────────────────────────────────────────────────────────────
-function tryParse(raw) {
-  console.log("raw: "+raw);
-  if ((!raw.includes('avg of') || !raw.includes('Time List:')) &&
-        !isTimeList(raw)) return null;
-  try {
-    const cstimer = raw.indexOf("avg of ") > -1;
-    console.log("cstimer: "+cstimer);
-    let ao, avgVal, timeList, length;
-    if (cstimer) {
-      const after = raw.trim().split('avg of ')[1] || raw;
-      const firstLine = after.split('\n')[0];
-      avgVal = firstLine.slice(firstLine.indexOf(':') + 1).trim();
-      console.log("avgVal: "+avgVal);
-      ao = after.split('Time List:')[1];
-      console.log("ao: "+ao);
-    }
-    else ao = raw;
-
-    timeList = noMultiphase(noBrackets(ao)).split(', ').map(s => s.trim()).filter(Boolean);
-    console.log("timeList: "+timeList);
-    if (!timeList.length) return null;
-    length = timeList.length;
-    const decimals = Math.max(...timeList.map(s => {
-      const np = numPart(s);
-      return np.includes('.') ? np.split('.')[1].length : 0;
-    }));
-    const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
-    if (!cstimer) avgVal = avg(r, length, decimals);
-    console.log({ timeList, r, avgVal, decimals, length });
-    return { timeList, r, avgVal, decimals, length };
-  } catch(e) { console.error(e); return null; }
-}
-
 pasteArea.addEventListener('input', () => {
   if (!pasteArea.value) {
     autoRecommended = false;
@@ -275,7 +276,7 @@ pasteArea.addEventListener('input', () => {
     btnCopy.style.display = 'none';
     lastStats = null;
   }
-  parsed = tryParse(pasteArea.value);
+  parsed = parsePaste(pasteArea.value);
   if (parsed) {
     configZone.style.opacity = '1';
     configZone.style.pointerEvents = '';
@@ -302,6 +303,10 @@ pasteArea.addEventListener('input', () => {
   if (el.type === 'number' || el.type === 'text') el.addEventListener('input', () => { if (parsed) compute(); });
 });
 avg2In.addEventListener('input', () => avg2In.dataset.touched = '1');
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const _stored = localStorage.getItem(STORAGE_KEY);
+if (_stored) { pasteArea.value = _stored; pasteArea.dispatchEvent(new Event('input')); }
 
 // ── Copy ─────────────────────────────────────────────────────────────────────
 let flashTimeout = null;
@@ -350,6 +355,8 @@ function triggerCopy() {
 btnCopy.addEventListener('click', triggerCopy);
 
 document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'Escape') { e.preventDefault(); triggerReset(); return; }
+  if (e.ctrlKey && e.key === 'z') { if (undoMode) { e.preventDefault(); triggerUndo(); } return; }
   if (!e.ctrlKey || e.key !== 'c' || !lastStats) return;
   const active = document.activeElement;
   const hasInputSel = active &&

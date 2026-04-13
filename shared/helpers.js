@@ -343,11 +343,19 @@ export function isTimeList(ts) {
    * @param {string} ts - the string to be checked
    * @returns {boolean} - whether it's a comma-separated time list
    */
-  return (ts.split(",").map(
+  return ts.split(",").map(
     (t) => /^[0-9.()DNFdnf+:]+$/.test(
       t?.trim()?.replaceAll(/\[.*?\]/g, "")
-    )).every()
-  );
+    )).every(Boolean);
+}
+
+export function isCstimerFormat(ts) {
+  /**
+   * check whether the string given is of cstimer format
+   * @param {string} ts - the string to be checked
+   * @returns {boolean} - whether it's of cstimer format
+   */
+  return ts.includes('avg of') && ts.includes('Time List:');
 }
 
 // ── Stats Calculator ─────────────────────────────────────────────────────────
@@ -356,4 +364,35 @@ export function stdev(arr) {
   if (arr.length < 2) return 0;
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
   return Math.sqrt(arr.reduce((acc, v) => acc + (v - mean) ** 2, 0) / (arr.length - 1));
+}
+
+export function parsePaste(raw) {
+  /**
+   * performs a full parse from a pastearea value
+   * @param {string} raw - the text to be analyzed
+   * @returns {Object} - null, or the final object containing {ao, avgVal, decimals, length, r, timeList}
+   */
+  let ao, avgVal;
+  if (!isCstimerFormat(raw) && !isTimeList(raw) ) return null;
+  try {
+    const cstimer = raw.indexOf("avg of ") > -1;
+    if (cstimer) {
+      const after = raw.trim().split('avg of ')[1] || raw;
+      const firstLine = after.split('\n')[0];
+      avgVal = firstLine.slice(firstLine.indexOf(':') + 1).trim();
+      ao = after.split('Time List:')[1];
+    }
+    else ao = raw;
+
+    const timeList = noMultiphase(noBrackets(ao)).split(',').map(s => s.trim()).filter(Boolean);
+    if (!timeList.length) return null;
+    length = timeList.length;
+    const decimals = Math.max(...timeList.map(s => {
+      const np = numPart(s);
+      return np.includes('.') ? np.split('.')[1].length : 0;
+    }));
+    const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
+    if (!cstimer) avgVal = avg(r, length, decimals);
+    return {ao, avgVal, decimals, length, r, timeList}
+  } catch(e) { console.error(e); return null; }
 }

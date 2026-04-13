@@ -29,6 +29,13 @@
       content:'';display:inline-block;width:6px;height:6px;
       border-radius:50%;background:#c89a3a;flex-shrink:0;
     }
+    #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
+    .btn kbd {
+      font-family: var(--font-mono); font-size: 0.6em;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
+      letter-spacing: 0; font-weight: 400; text-transform: none;
+    }
   </style>
 </head>
 <body>
@@ -40,6 +47,7 @@
         <div class="panel-title"><span class="dot"></span>Sub-X Count</div>
         <div class="panel-sub">Count how many times (or rolling averages) are under a cutoff</div>
       </div>
+      <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
       <div class="input-group">
         <label class="label">Time list</label>
         <textarea id="paste" rows="10" placeholder="a cstimer average, or a comma-separated list of times"></textarea>
@@ -77,20 +85,49 @@
   </div>
 </div>
 <script type="module">
+
 import { buildNav } from '../shared/nav.js';
-import { noBrackets, noMultiphase, minutes, seconds, ndnf, numPart, avg, avgCompare, frwrd } from '../shared/helpers.js';
+import { noBrackets, noMultiphase, minutes, seconds, ndnf, numPart, avg,
+  isTimeList, isCstimerFormat, avgCompare, frwrd, parsePaste } from '../shared/helpers.js';
+
 buildNav('subx');
+
+const STORAGE_KEY = 'cube-tool-solves';
+const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
+const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
+const resetBtn = document.getElementById('resetBtn');
+let undoMode = false;
+
+function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
+function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+
+function clearResults() {
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('emptyMsg').style.display = '';
+}
+
+function triggerReset() {
+  if (undoMode) return;
+  localStorage.setItem(STORAGE_KEY, pasteEl.value);
+  pasteEl.value = '';
+  formatBadge.style.display = 'none';
+  clearResults();
+  enterUndoMode();
+}
+
+function triggerUndo() {
+  if (!undoMode) return;
+  const stored = localStorage.getItem(STORAGE_KEY) ?? '';
+  pasteEl.value = stored;
+  pasteEl.dispatchEvent(new Event('input'));
+  exitUndoMode();
+}
+
+resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
 
 // ── Format validation ─────────────────────────────────────────────────────────
 function isValidTime(s) {
   return /^[\d:.]+\+?$/.test(s.trim());
-}
-function isCommaSeparatedTimes(text) {
-  const parts = text.split(',').map(s => s.trim()).filter(Boolean);
-  return parts.length > 0 && parts.every(isValidTime);
-}
-function isCstimerFormat(text) {
-  return text.includes('avg of') && text.includes('Time List:');
 }
 
 const pasteEl     = document.getElementById('paste');
@@ -99,7 +136,7 @@ const formatBadge = document.getElementById('formatBadge');
 pasteEl.addEventListener('input', () => {
   const text = pasteEl.value;
   if (!text.trim()) { formatBadge.style.display = 'none'; return; }
-  const valid = isCstimerFormat(text) || isCommaSeparatedTimes(text);
+  const valid = isCstimerFormat(text) || isTimeList(text);
   formatBadge.style.display = valid ? 'none' : '';
 });
 
@@ -126,6 +163,16 @@ aoxLenEl.addEventListener('input', () => {
 document.getElementById('goBtn').addEventListener('click', compute);
 document.getElementById('cutoff').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
 
+// Shift+Esc → reset; Ctrl+Z → undo
+document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'Escape') { e.preventDefault(); triggerReset(); }
+  if (e.ctrlKey && e.key === 'z') { if (undoMode) { e.preventDefault(); triggerUndo(); } }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const _stored = localStorage.getItem(STORAGE_KEY);
+if (_stored) { pasteEl.value = _stored; pasteEl.dispatchEvent(new Event('input')); }
+
 function compute() {
   const errMsg = document.getElementById('errMsg');
   errMsg.textContent = '';
@@ -141,8 +188,8 @@ function compute() {
   if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff (e.g. 9.5 or 1:03).'; return; }
 
   // Strip cstimer header if present
-  if (raw.includes('Time List:')) raw = raw.split('Time List:')[1];
-  let timeList = noMultiphase(noBrackets(raw)).split(',').map(s => s.trim()).filter(Boolean);
+  const {timeList} = parsePaste(raw);
+  localStorage.setItem(STORAGE_KEY, timeList.join(', '));
 
   // ── Optional AoX pre-step ─────────────────────────────────────────────────
   const aoxRaw = aoxLenEl.value.trim();

@@ -53,6 +53,13 @@
       color: var(--text-dim); line-height: 2; word-break: break-all;
     }
     #copyBtn { margin-top: 14px; }
+    #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
+    .btn kbd {
+      font-family: var(--font-mono); font-size: 0.6em;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
+      letter-spacing: 0; font-weight: 400; text-transform: none;
+    }
   </style>
 </head>
 <body>
@@ -65,6 +72,7 @@
         <div class="panel-title"><span class="dot"></span>Time Addition</div>
         <div class="panel-sub">Add times under an hour together</div>
       </div>
+      <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
       <div id="solveList" class="solve-list"></div>
       <div class="mt-16">
         <button class="btn btn-ghost" id="addRowBtn">+ Add time</button>
@@ -97,6 +105,11 @@ buildNav('add');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let solves = []; // { raw: string, penalty: null|'p2'|'dnf' }
+let undoMode = false;
+let suppressSave = false;
+const STORAGE_KEY = 'cube-tool-solves';
+const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
+const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const solveList  = document.getElementById('solveList');
@@ -105,6 +118,7 @@ const sumDisplay = document.getElementById('sumDisplay');
 const sumValue   = document.getElementById('sumValue');
 const sumStrEl   = document.getElementById('sumStr');
 const copyBtn    = document.getElementById('copyBtn');
+const resetBtn   = document.getElementById('resetBtn');
 
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
@@ -169,6 +183,62 @@ function updateRemoveBtns() {
     btn.classList.toggle('hidden', single);
   });
 }
+
+// ── Storage & undo ────────────────────────────────────────────────────────────
+function serializeSolves() {
+  return [...solveList.querySelectorAll('.solve-field')]
+    .map(f => f.value.trim()).filter(Boolean).join(', ');
+}
+
+function saveToStorage() {
+  if (suppressSave) return;
+  if (undoMode) exitUndoMode();
+  localStorage.setItem(STORAGE_KEY, serializeSolves());
+}
+
+function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
+function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+
+function parseSolveStr(v) {
+  v = v.trim(); if (!v) return null;
+  const d = parseDnfInput(v);
+  if (d !== null) return { raw: d.raw, penalty: 'dnf' };
+  if (v.endsWith('+')) {
+    const base = v.slice(0, -1).trim();
+    if (timeRegex(base)) return { raw: base, penalty: 'p2' };
+  }
+  return { raw: v, penalty: null };
+}
+
+function restoreFromStorage() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  const parts  = stored ? stored.split(',').map(p => p.trim()).filter(Boolean) : [];
+  const parsed = parts.map(parseSolveStr).filter(Boolean);
+  suppressSave = true;
+  solves = []; solveList.innerHTML = '';
+  if (parsed.length) {
+    parsed.forEach(s => { solves.push(s); solveList.appendChild(createEntryEl(solves.length - 1)); });
+    updateRemoveBtns(); recompute();
+  } else { addRow(false); addRow(false); addRow(true); }
+  suppressSave = false;
+}
+
+function triggerReset() {
+  if (undoMode) return;
+  suppressSave = true;
+  solves = []; solveList.innerHTML = '';
+  addRow(false); addRow(false); addRow(true);
+  suppressSave = false;
+  enterUndoMode();
+}
+
+function triggerUndo() {
+  if (!undoMode) return;
+  suppressSave = true; restoreFromStorage(); suppressSave = false;
+  exitUndoMode();
+}
+
+resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
 
 // ── Row creation ──────────────────────────────────────────────────────────────
 function createEntryEl(idx) {
@@ -381,7 +451,7 @@ function recompute() {
     emptyMsg.textContent = 'One or more times are invalid.';
     sumDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
-    return;
+    saveToStorage(); return;
   }
 
   if (filled.length < 1) {
@@ -389,7 +459,7 @@ function recompute() {
     emptyMsg.textContent = 'Add at least one time on the left.';
     sumDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
-    return;
+    saveToStorage(); return;
   }
 
   // Any DNF → result is DNF
@@ -401,7 +471,7 @@ function recompute() {
     sumStrEl.textContent = detail;
     copyBtn.style.display = '';
     copyBtn.dataset.result = detail;
-    return;
+    saveToStorage(); return;
   }
 
   // Sum numeric values (+2 adds 2 s)
@@ -431,6 +501,7 @@ function recompute() {
   sumStrEl.textContent = detail;
   copyBtn.style.display = '';
   copyBtn.dataset.result = detail;
+  saveToStorage();
 }
 
 // ── Copy ──────────────────────────────────────────────────────────────────────
@@ -452,8 +523,10 @@ function triggerCopy() {
 
 copyBtn.addEventListener('click', triggerCopy);
 
-// Ctrl+C → copy result when nothing is selected
+// Ctrl+C → copy result when nothing is selected; Shift+Esc → reset; Ctrl+Z → undo
 document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'Escape') { e.preventDefault(); triggerReset(); return; }
+  if (e.ctrlKey && e.key === 'z') { if (undoMode) { e.preventDefault(); triggerUndo(); } return; }
   if (!e.ctrlKey || e.key !== 'c') return;
   if (copyBtn.style.display === 'none') return;
   const active = document.activeElement;
@@ -468,9 +541,13 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-addRow(true);
-addRow(false);
-addRow(false);
+if (localStorage.getItem(STORAGE_KEY)) {
+  restoreFromStorage();
+} else {
+  suppressSave = true;
+  addRow(false); addRow(false); addRow(true);
+  suppressSave = false;
+}
 </script>
 </body>
 </html>

@@ -37,6 +37,13 @@
     .summary-worst{font-family:var(--font-mono);color:var(--worst);}
     .summary-tot{font-family:var(--font-mono);color:var(--text-dim);}
     #copyBtn{margin-top:14px}
+    #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
+    .btn kbd {
+      font-family: var(--font-mono); font-size: 0.6em;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
+      letter-spacing: 0; font-weight: 400; text-transform: none;
+    }
   </style>
 </head>
 <body>
@@ -48,6 +55,7 @@
         <div class="panel-title"><span class="dot"></span>AoX List</div>
         <div class="panel-sub">Split a session into all rolling sub-averages</div>
       </div>
+      <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
       <div class="input-group">
         <label class="label" for="paste">average</label>
         <textarea id="paste" rows="8" placeholder="Paste a full cstimer average (or comma-separated solves) here…"></textarea>
@@ -76,25 +84,53 @@
   </div>
 </div>
 <script type="module">
+
 import { buildNav } from '../shared/nav.js';
-import { noBrackets, noMultiphase, minutes, seconds, ndnf, avg, avgStr, avgCompare, frwrd, numPart } from '../shared/helpers.js';
+import { noBrackets, noMultiphase, minutes, seconds, ndnf, avg, parsePaste,
+  isTimeList, isCstimerFormat, avgStr, avgCompare, frwrd, numPart } from '../shared/helpers.js';
+
 buildNav('aox');
 
-document.getElementById('goBtn').addEventListener('click', compute);
+const STORAGE_KEY = 'cube-tool-solves';
+const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
+const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
+const resetBtn = document.getElementById('resetBtn');
+let undoMode = false;
+
+function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
+function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+
+function clearResults() {
+  document.getElementById('listOut').innerHTML = '<div class="output-empty">Results will appear here.</div>';
+  document.getElementById('summary').style.display = 'none';
+  document.getElementById('countLabel').textContent = '';
+  document.getElementById('copyBtn').style.display = 'none';
+}
+
+function triggerReset() {
+  if (undoMode) return;
+  localStorage.setItem(STORAGE_KEY, pasteEl.value);
+  pasteEl.value = '';
+  formatBadge.style.display = 'none';
+  clearResults();
+  enterUndoMode();
+}
+
+function triggerUndo() {
+  if (!undoMode) return;
+  const stored = localStorage.getItem(STORAGE_KEY) ?? '';
+  pasteEl.value = stored;
+  pasteEl.dispatchEvent(new Event('input'));
+  exitUndoMode();
+}
+
+resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
 document.getElementById('avgLen').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
+document.getElementById('goBtn').addEventListener('click', e => { compute(); });
 
 // ── Format validation ─────────────────────────────────────────────────────────
 function isValidTime(s) {
   return /^[\d:.]+$/.test(s.trim());
-}
-
-function isCommaSeparatedTimes(text) {
-  const parts = text.split(',').map(s => s.trim()).filter(Boolean);
-  return parts.length > 0 && parts.every(isValidTime);
-}
-
-function isCstimerFormat(text) {
-  return text.includes('avg of') && text.includes('Time List:');
 }
 
 const pasteEl      = document.getElementById('paste');
@@ -103,7 +139,7 @@ const formatBadge  = document.getElementById('formatBadge');
 pasteEl.addEventListener('input', () => {
   const text = pasteEl.value;
   if (!text.trim()) { formatBadge.style.display = 'none'; return; }
-  const valid = isCstimerFormat(text) || isCommaSeparatedTimes(text);
+  const valid = isCstimerFormat(text) || isTimeList(text);
   formatBadge.style.display = valid ? 'none' : '';
 });
 
@@ -127,8 +163,10 @@ function triggerCopy() {
 
 copyBtn.addEventListener('click', triggerCopy);
 
-// Ctrl+C → copy result when nothing is selected
+// Ctrl+C → copy result when nothing is selected; Shift+Esc → reset; Ctrl+Z → undo
 document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'Escape') { e.preventDefault(); triggerReset(); return; }
+  if (e.ctrlKey && e.key === 'z') { if (undoMode) { e.preventDefault(); triggerUndo(); } return; }
   if (!e.ctrlKey || e.key !== 'c') return;
   if (copyBtn.style.display === 'none') return;
   const active = document.activeElement;
@@ -141,6 +179,10 @@ document.addEventListener('keydown', e => {
     triggerCopy();
   }
 });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const _stored = localStorage.getItem(STORAGE_KEY);
+if (_stored) { pasteEl.value = _stored; pasteEl.dispatchEvent(new Event('input')); }
 
 // ── Solve span renderer (matches average.html style) ─────────────────────────
 function renderSolveSpans(solves) {
@@ -160,20 +202,18 @@ function compute() {
   const raw = pasteEl.value;
   const errMsg = document.getElementById('errMsg');
   errMsg.textContent = '';
-  if (!raw.includes('avg of') || !raw.includes('Time List:')) { errMsg.textContent = 'Paste a valid cstimer average.'; return; }
+  function error() { errMsg.textContent = 'Paste a valid cstimer average.'; return; }
   const n = parseInt(document.getElementById('avgLen').value);
   if (isNaN(n) || n < 3) { errMsg.textContent = 'Minimum length is 3.'; return; }
 
-  const after = raw.trim().split('avg of ')[1];
-  const ao = after.split('Time List:')[1];
-  const timeList = noMultiphase(noBrackets(ao)).split(', ').map(s=>s.trim()).filter(Boolean);
-  const LENGTH = timeList.length;
-  if (n >= LENGTH) { errMsg.textContent = `Length must be less than session length (${LENGTH}).`; return; }
-  const decimals = Math.max(...timeList.map(s => { const np=numPart(s); return np.includes('.')?np.split('.')[1].length:0; }));
-  const r = timeList.map(s => ndnf(s) ? String(minutes(numPart(s))) : 'DNF');
+  debugger;
+  const result = parsePaste(raw);
+  if (!result) error(); // code returns here
+  const {decimals, length, r, timeList} = result;
+  localStorage.setItem(STORAGE_KEY, timeList.join(', '));
 
   const results = [];
-  for (let i = 0; i <= LENGTH - n; i++) {
+  for (let i = 0; i <= length - n; i++) {
     const slice = frwrd(r, i, n);
     let val = avg(slice, n, decimals);
     const display = avgStr(n, slice);
@@ -199,7 +239,7 @@ function compute() {
       <div class="summary-row"><span class="summary-key">Total</span><span class="summary-tot">${results.length} rolling averages</span></div>`;
   } else { summaryEl.style.display = 'none'; }
 
-  document.getElementById('countLabel').textContent = `${results.length} ao${n}s from ${LENGTH} solves`;
+  document.getElementById('countLabel').textContent = `${results.length} ao${n}s from ${length} solves`;
 
   const listOut = document.getElementById('listOut');
   listOut.innerHTML = results.map((x, i) => {
