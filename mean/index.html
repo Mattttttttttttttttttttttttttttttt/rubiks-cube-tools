@@ -170,7 +170,7 @@ function toSeconds(v) {
 }
 
 function formatTime(val, dec) {
-  const prec = Math.max(dec, 2);
+  const prec = dec;
   if (val >= 60) {
     const m = Math.floor(val / 60);
     const s = (val - m * 60).toFixed(prec);
@@ -218,7 +218,7 @@ function parseDnfInput(v) {
 function applyFieldDisplay(field, s) {
   field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
   if (s.penalty === 'p2' && s.raw) {
-    field.value = s.raw + '+';           // show "2.30+" so user can keep editing
+    field.value = formatTime(toSeconds(s.raw) + 2, decimalPlaces(s.raw) === 0 ? 0 : decimalPlaces(s.raw)) + '+';
     field.classList.add('p2-state');
   } else if (s.penalty === 'dnf') {
     field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
@@ -294,12 +294,16 @@ function createEntryEl(idx) {
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        solves[ri].raw     = base;
-        solves[ri].penalty = 'p2';
-        applyPenaltyClass(field, 'p2');
-        updatePenBtns(entry, 'p2');
-        recompute();
-        return;
+        const rawSeconds = toSeconds(base) - 2;
+        if (rawSeconds >= 0) {
+          solves[ri].raw     = formatTime(rawSeconds, decimalPlaces(base));
+          solves[ri].penalty = 'p2';
+          solves[ri].p2Source = 'typed';
+          applyPenaltyClass(field, 'p2');
+          updatePenBtns(entry, 'p2');
+          recompute();
+          return;
+        }
       }
     }
 
@@ -385,7 +389,9 @@ function createEntryEl(idx) {
       // Capture a plain time from the field if it's currently showing one
       const cur = field.value.trim();
       if (timeRegex(cur)) solves[ri].raw = cur;
-      solves[ri].penalty = solves[ri].penalty === type ? null : type;
+      const isP2 = solves[ri].penalty === type;
+      solves[ri].penalty = isP2 ? null : type;
+      solves[ri].p2Source = !isP2 && type === 'p2' ? 'explicit' : null;
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
@@ -429,7 +435,7 @@ function rebuildRows() {
 }
 
 function addRow(focusNew = true) {
-  solves.push({ raw: '', penalty: null });
+  solves.push({ raw: '', penalty: null, p2Source: null });
   const entry = createEntryEl(solves.length - 1);
   solveList.appendChild(entry);
   updateRemoveBtns();
@@ -458,7 +464,10 @@ function parseSolveStr(v) {
   if (d !== null) return { raw: d.raw, penalty: 'dnf' };
   if (v.endsWith('+')) {
     const base = v.slice(0, -1).trim();
-    if (timeRegex(base)) return { raw: base, penalty: 'p2' };
+    if (timeRegex(base)) {
+      const rawSeconds = toSeconds(base) - 2;
+      if (rawSeconds >= 0) return { raw: formatTime(rawSeconds, decimalPlaces(base)), penalty: 'p2', p2Source: 'typed' };
+    }
   }
   return { raw: v, penalty: null };
 }

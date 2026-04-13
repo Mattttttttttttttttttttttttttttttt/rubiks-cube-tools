@@ -160,7 +160,7 @@ function parseDnfInput(v) {
 function applyFieldDisplay(field, s) {
   field.classList.remove('p2-state', 'dnf-state', 'ok', 'err');
   if (s.penalty === 'p2' && s.raw) {
-    field.value = s.raw + '+';
+    field.value = renderTimeStr(s);
     field.classList.add('p2-state');
   } else if (s.penalty === 'dnf') {
     field.value = s.raw ? `DNF(${s.raw})` : 'DNF';
@@ -205,7 +205,10 @@ function parseSolveStr(v) {
   if (d !== null) return { raw: d.raw, penalty: 'dnf' };
   if (v.endsWith('+')) {
     const base = v.slice(0, -1).trim();
-    if (timeRegex(base)) return { raw: base, penalty: 'p2' };
+    if (timeRegex(base)) {
+      const rawSeconds = minutes(base) - 2;
+      if (rawSeconds >= 0) return { raw: seconds(String(rawSeconds)), penalty: 'p2', p2Source: 'typed' };
+    }
   }
   return { raw: v, penalty: null };
 }
@@ -283,12 +286,16 @@ function createEntryEl(idx) {
     if (v.endsWith('+')) {
       const base = v.slice(0, -1).trim();
       if (timeRegex(base)) {
-        solves[ri].raw     = base;
-        solves[ri].penalty = 'p2';
-        applyPenaltyClass(field, 'p2');
-        updatePenBtns(entry, 'p2');
-        recompute();
-        return;
+        const rawSeconds = minutes(base) - 2;
+        if (rawSeconds >= 0) {
+          solves[ri].raw     = seconds(String(rawSeconds));
+          solves[ri].penalty = 'p2';
+          solves[ri].p2Source = 'typed';
+          applyPenaltyClass(field, 'p2');
+          updatePenBtns(entry, 'p2');
+          recompute();
+          return;
+        }
       }
     }
 
@@ -322,6 +329,7 @@ function createEntryEl(idx) {
       e.preventDefault();
       if (ri === -1) return;
       solves[ri].penalty = null;
+      solves[ri].p2Source = null;
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, null);
       recompute();
@@ -331,7 +339,9 @@ function createEntryEl(idx) {
     if (e.ctrlKey && e.key === '2') {
       e.preventDefault();
       if (ri === -1) return;
-      solves[ri].penalty = solves[ri].penalty === 'p2' ? null : 'p2';
+      const isP2 = solves[ri].penalty === 'p2';
+      solves[ri].penalty = isP2 ? null : 'p2';
+      solves[ri].p2Source = isP2 ? null : 'explicit';
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
@@ -372,7 +382,9 @@ function createEntryEl(idx) {
       if (ri === -1) return;
       const cur = field.value.trim();
       if (timeRegex(cur)) solves[ri].raw = cur;
-      solves[ri].penalty = solves[ri].penalty === type ? null : type;
+      const isP2 = solves[ri].penalty === type;
+      solves[ri].penalty = isP2 ? null : type;
+      solves[ri].p2Source = !isP2 && type === 'p2' ? 'explicit' : null;
       applyFieldDisplay(field, solves[ri]);
       updatePenBtns(entry, solves[ri].penalty);
       recompute();
@@ -409,7 +421,7 @@ function createEntryEl(idx) {
 }
 
 function addRow(focusNew = true) {
-  solves.push({ raw: '', penalty: null });
+  solves.push({ raw: '', penalty: null, p2Source: null });
   const entry = createEntryEl(solves.length - 1);
   solveList.appendChild(entry);
   updateRemoveBtns();
