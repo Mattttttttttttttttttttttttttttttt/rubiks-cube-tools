@@ -632,6 +632,32 @@ select {
     padding: 4px 6px;
 }
 
+.btn-ghost kbd {
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border-2);
+    border-radius: 2px;
+    padding: 1px 4px;
+    color: var(--text-muted);
+    letter-spacing: 0;
+    font-weight: 400;
+    text-transform: none;
+}
+
+.btn-primary kbd {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    padding: 1px 4px;
+    color: #1a0810;
+    letter-spacing: 0;
+    font-weight: 400;
+    text-transform: none;
+}
+
 /* ── PENALTY BUTTONS ── */
 .pen-btn {
     font-family: var(--font-mono);
@@ -1133,7 +1159,7 @@ select {
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 500;
-    letter-spacing:.09em;
+    letter-spacing: .09em;
     color: var(--text-dim);
     line-height: 1.5;
     width: 230px;
@@ -1222,4 +1248,24 @@ select {
     .stat-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* ── FORMAT / ERROR BADGE ── */
+.format-badge {
+    font-size: 0.72rem;
+    color: #d86074;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.format-badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d86074;
+    flex-shrink: 0;
 }

@@ -30,12 +30,6 @@
       border-radius:50%;background:#c89a3a;flex-shrink:0;
     }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
-    .btn kbd {
-      font-family: var(--font-mono); font-size: 0.6em;
-      background: var(--surface-2); border: 1px solid var(--border-2);
-      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
-      letter-spacing: 0; font-weight: 400; text-transform: none;
-    }
   </style>
 </head>
 <body>
@@ -49,8 +43,8 @@
       </div>
       <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
       <div class="input-group">
-        <label class="label">Time list</label>
-        <textarea id="paste" rows="10" placeholder="a cstimer average, or a comma-separated list of times"></textarea>
+        <label class="label">input</label>
+        <textarea id="paste" rows="10" placeholder="your FULL cstimer average, or a comma-separated list of solves"></textarea>
         <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
       </div>
       <div class="input-group">

@@ -38,12 +38,6 @@
     .summary-tot{font-family:var(--font-mono);color:var(--text-dim);}
     #copyBtn{margin-top:14px}
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
-    .btn kbd {
-      font-family: var(--font-mono); font-size: 0.6em;
-      background: var(--surface-2); border: 1px solid var(--border-2);
-      border-radius: 2px; padding: 1px 4px; color: var(--text-muted);
-      letter-spacing: 0; font-weight: 400; text-transform: none;
-    }
   </style>
 </head>
 <body>
@@ -57,8 +51,8 @@
       </div>
       <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
       <div class="input-group">
-        <label class="label" for="paste">average</label>
-        <textarea id="paste" rows="8" placeholder="Paste a full cstimer average (or comma-separated solves) here…"></textarea>
+        <label class="label" for="paste">input</label>
+        <textarea id="paste" rows="8" placeholder="your FULL cstimer average, or a comma-separated list of solves"></textarea>
         <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
       </div>
       <div class="input-group">
