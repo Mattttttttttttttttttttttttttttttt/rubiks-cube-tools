@@ -41,7 +41,7 @@
     .stat-line-val.hi { color:var(--accent); }
 
     /* copy button */
-    #btnCopy { width:100%;justify-content:center;margin-top:14px;transition:color .15s,border-color .15s; }
+    #btnCopy { width:100%;justify-content:center;margin-bottom:10px;transition:color .15s,border-color .15s; }
     #btnCopy.flash { color:#4a9e6b !important;border-color:#4a9e6b !important; }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
 
@@ -65,6 +65,7 @@
       <div class="input-group">
         <label class="label" for="pasteArea">input</label>
         <textarea id="pasteArea" placeholder="your FULL cstimer average, or a comma-separated list of solves"></textarea>
+        <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
       </div>
 
       <div id="configZone" style="opacity:.35;pointer-events:none">
@@ -157,10 +158,10 @@
         <div class="panel-title"><span class="dot" style="background:#555"></span>Results</div>
         <div id="resultsSub" class="panel-sub"></div>
       </div>
+      <button class="btn btn-ghost" id="btnCopy" style="display:none">Copy results</button>
       <div id="outputCols">
         <p class="output-empty" id="placeholderOut">Paste a valid cstimer average on the left to see stats.</p>
       </div>
-      <button class="btn btn-ghost" id="btnCopy" style="display:none">Copy results</button>
     </div>
 
   </div><!-- /split -->
@@ -177,6 +178,7 @@ import {
 buildNav('stats');
 
 const pasteArea   = document.getElementById('pasteArea');
+const formatBadge = document.getElementById('formatBadge');
 const configZone  = document.getElementById('configZone');
 const outputCols  = document.getElementById('outputCols');
 const placeholder = document.getElementById('placeholderOut');
@@ -269,9 +271,16 @@ pasteArea.addEventListener('input', () => {
     cut3In.value = '';
     btnCopy.style.display = 'none';
     lastStats = null;
+    localStorage.removeItem(STORAGE_KEY);
+    formatBadge.style.display = 'none';
   }
   parsed = parsePaste(pasteArea.value);
+  const hasContent = pasteArea.value.trim().length > 0;
+  formatBadge.style.display = (!parsed && hasContent) ? '' : 'none';
   if (parsed) {
+    localStorage.setItem(STORAGE_KEY, parsed.timeList.map(t => {
+      let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
+    }).join(', '));
     configZone.style.opacity = '1';
     configZone.style.pointerEvents = '';
     if (parsed.length >= 12 && !avg2In.dataset.touched) avg2In.value = Math.min(12, parsed.length - 1);

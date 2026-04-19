@@ -13,22 +13,6 @@
     .bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);height:8px;overflow:hidden;margin-top:20px}
     .bar-fill{height:100%;border-radius:var(--radius);transition:width 0.4s, background 0.4s}
     #paste{field-sizing:content;resize:none;min-height:8lh;}
-    .format-badge{
-      font-size:0.72rem;color:#d86074;margin-top:5px;
-      display:flex;align-items:center;gap:5px;
-    }
-    .format-badge::before{
-      content:'';display:inline-block;width:6px;height:6px;
-      border-radius:50%;background:#d86074;flex-shrink:0;
-    }
-    .field-note{
-      font-size:0.72rem;color:#c89a3a;margin-top:5px;
-      display:flex;align-items:center;gap:5px;
-    }
-    .field-note::before{
-      content:'';display:inline-block;width:6px;height:6px;
-      border-radius:50%;background:#c89a3a;flex-shrink:0;
-    }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
   </style>
 </head>
@@ -60,13 +44,13 @@
       <div class="input-group">
         <label class="label">Cutoff</label>
         <div class="row">
-          <input type="text" id="cutoff" placeholder="e.g. 1:00.1" style="width:110px">
+          <input type="text" id="cutoff" placeholder="e.g. 1:00.1" style="width:110px" autofill="off">
           <button class="btn btn-primary" id="goBtn">Count</button>
         </div>
-        <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px"></div>
+        <div id="errMsg" class="format-badge" style="min-height:16px"></div>
       </div>
     </div>
-    <div class="panel" style="justify-content:center">
+    <div class="panel">
       <div id="result" style="display:none">
         <div class="big-result" id="fraction"></div>
         <div class="big-sub" id="pct"></div>
@@ -91,9 +75,20 @@ const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
 const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
 const resetBtn = document.getElementById('resetBtn');
 let undoMode = false;
+let resetPagehideHandler = null;
 
-function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
-function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+function enterUndoMode() {
+  undoMode = true;  resetBtn.innerHTML = UNDO_HTML;
+  resetPagehideHandler = () => localStorage.removeItem(STORAGE_KEY);
+  window.addEventListener('pagehide', resetPagehideHandler);
+}
+function exitUndoMode()  {
+  undoMode = false; resetBtn.innerHTML = RESET_HTML;
+  if (resetPagehideHandler) {
+    window.removeEventListener('pagehide', resetPagehideHandler);
+    resetPagehideHandler = null;
+  }
+}
 
 function clearResults() {
   document.getElementById('result').style.display = 'none';
@@ -139,6 +134,7 @@ const aoxLenEl    = document.getElementById('aoxLen');
 const aoxErrBadge = document.getElementById('aoxErrBadge');
 
 aoxLenEl.addEventListener('input', () => {
+  aoxLenEl.value = aoxLenEl.value.replaceAll(/[^0-9]/g, "");
   const v = aoxLenEl.value.trim();
   if (!v) { aoxErrBadge.style.display = 'none'; return; }
   const n = parseInt(v);
@@ -155,6 +151,8 @@ aoxLenEl.addEventListener('input', () => {
 
 // ── Compute ───────────────────────────────────────────────────────────────────
 document.getElementById('goBtn').addEventListener('click', compute);
+const cutoffEl = document.getElementById('cutoff');
+cutoffEl.addEventListener('input', () => { cutoffEl.value = cutoffEl.value.replaceAll(/[^0-9.:]/g, ""); });
 document.getElementById('cutoff').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
 
 // Shift+Esc → reset; Ctrl+Z → undo
@@ -172,7 +170,7 @@ function compute() {
   errMsg.textContent = '';
 
   let raw = pasteEl.value.trim();
-  const cutRaw = document.getElementById('cutoff').value.trim();
+  const cutRaw = cutoffEl.value.trim();
 
   if (!raw) { errMsg.textContent = 'Paste some times first.'; return; }
   if (!cutRaw) { errMsg.textContent = 'Enter a cutoff.'; return; }
@@ -182,8 +180,10 @@ function compute() {
   if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff (e.g. 9.5 or 1:03).'; return; }
 
   // Strip cstimer header if present
-  const {timeList} = parsePaste(raw);
-  localStorage.setItem(STORAGE_KEY, timeList.join(', '));
+  let {timeList} = parsePaste(raw);
+  localStorage.setItem(STORAGE_KEY, timeList.map(t => {
+    let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
+  }).join(', '));
 
   // ── Optional AoX pre-step ─────────────────────────────────────────────────
   const aoxRaw = aoxLenEl.value.trim();
@@ -216,7 +216,7 @@ function compute() {
       }
       timeList = rolled;
       aoxApplied = true;
-      aoxLabelText = `Computed over ${timeList.length} rolling ao${n}s`;
+      aoxLabelText = `Computed ${timeList.length} rolling ao${n}s`;
     }
     // n === 1: do nothing, proceed with original list
   }
@@ -237,7 +237,7 @@ function compute() {
 
   const fractionEl = document.getElementById('fraction');
   fractionEl.style.color = color;
-  fractionEl.textContent = `${subCount}/${total}`;
+  fractionEl.textContent = `${subCount}/${total} = ${pctFixed}%`;
 
   document.getElementById('pct').textContent = `${pctFixed}% sub-${seconds(String(cut))}`;
 

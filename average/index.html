@@ -19,10 +19,15 @@
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
     .solve-error {
       font-family: var(--font-mono); font-size: 0.65rem;
-      color: #c41e3a; padding-left: 106px;
-      display: none;
+      color: #d86074; padding-left: 106px;
+      display: none; align-items: center; gap: 5px;
     }
-    .solve-error.visible { display: block; }
+    .solve-error::before {
+      content: ''; display: inline-block; width: 12px; height: 11px; flex-shrink: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M10 2L2 16h16L10 2z' fill='none' stroke='%23d86074' stroke-width='2.8' stroke-linejoin='round'/%3E%3Crect x='9.1' y='7' width='1.8' height='5' rx='.9' fill='%23d86074'/%3E%3Ccircle cx='10' cy='14' r='1.1' fill='%23d86074'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-size: contain; background-position: center;
+    }
+    .solve-error.visible { display: flex; }
 
     .drag-handle {
       width: 16px; height: 28px;
@@ -76,9 +81,7 @@
     .output-avg-str .s-fastest { color: #ffd500; font-weight: 600; }
     .output-avg-str .s-normal  { color: var(--text); }
     .output-avg-str .s-dnf     { color: var(--accent); }
-    #copyBtn { margin-top: 14px; }
-
-    #copyBtn { margin-top: 14px; }
+    #copyBtn { margin-bottom: 10px; }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
 
     .drop-indicator {
@@ -112,6 +115,7 @@
           <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
           <div class="panel-sub">Updates live as you type</div>
         </div>
+        <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
         <div class="output-box" id="outputBox">
           <div id="emptyMsg" class="output-empty">Add at least 3 solves to see the average.</div>
           <div id="avgDisplay" style="display:none">
@@ -119,7 +123,6 @@
             <div class="output-avg-str" id="avgStr"></div>
           </div>
         </div>
-        <button class="btn btn-ghost mt-16" id="copyBtn" style="display:none">Copy result</button>
       </div>
 
     </div>
@@ -135,6 +138,7 @@ let solves    = []; // { raw: string, penalty: null|'p2'|'dnf' }
 let dragState = null;
 let undoMode = false;
 let suppressSave = false;
+let resetPagehideHandler = null;
 const STORAGE_KEY = 'cube-tool-solves';
 const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
 const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
@@ -442,8 +446,18 @@ function saveToStorage() {
   localStorage.setItem(STORAGE_KEY, serializeSolves());
 }
 
-function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
-function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+function enterUndoMode() {
+  undoMode = true;  resetBtn.innerHTML = UNDO_HTML;
+  resetPagehideHandler = () => localStorage.removeItem(STORAGE_KEY);
+  window.addEventListener('pagehide', resetPagehideHandler);
+}
+function exitUndoMode()  {
+  undoMode = false; resetBtn.innerHTML = RESET_HTML;
+  if (resetPagehideHandler) {
+    window.removeEventListener('pagehide', resetPagehideHandler);
+    resetPagehideHandler = null;
+  }
+}
 
 function parseSolveStr(v) {
   v = v.trim(); if (!v) return null;

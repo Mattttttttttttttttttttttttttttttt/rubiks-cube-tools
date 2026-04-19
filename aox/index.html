@@ -11,9 +11,11 @@
       display:flex;align-items:center;gap:5px;
     }
     .format-badge::before {
-      content:'';display:inline-block;width:6px;height:6px;
-      border-radius:50%;background:#d86074;flex-shrink:0;
+      content:'';display:inline-block;width:14px;height:13px;flex-shrink:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M10 2L2 16h16L10 2z' fill='none' stroke='%23d86074' stroke-width='2.8' stroke-linejoin='round'/%3E%3Crect x='9.1' y='7' width='1.8' height='5' rx='.9' fill='%23d86074'/%3E%3Ccircle cx='10' cy='14' r='1.1' fill='%23d86074'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-size:contain;background-position:center;
     }
+    .format-badge:empty::before { display:none; }
     .avg-item { display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid var(--border); font-family:var(--font-mono);font-size:0.8rem; }
     .avg-item:last-child{border-bottom:none}
     .avg-idx{color:var(--text-muted);font-size:0.7rem;width:28px;flex-shrink:0;text-align:right}
@@ -36,7 +38,7 @@
     .summary-best{font-family:var(--font-mono);color:var(--best);}
     .summary-worst{font-family:var(--font-mono);color:var(--worst);}
     .summary-tot{font-family:var(--font-mono);color:var(--text-dim);}
-    #copyBtn{margin-top:14px}
+    #copyBtn{margin-bottom:10px}
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
   </style>
 </head>
@@ -61,7 +63,7 @@
           <input type="number" id="avgLen" min="3" placeholder="e.g. 5" style="width:90px">
           <button class="btn btn-primary" id="goBtn">Compute</button>
         </div>
-        <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px"></div>
+        <div id="errMsg" class="format-badge" style="min-height:16px"></div>
       </div>
     </div>
     <div class="panel">
@@ -69,11 +71,11 @@
         <div class="panel-title"><span class="dot" style="background:#555"></span>Rolling averages</div>
         <div id="countLabel" class="panel-sub"></div>
       </div>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
       <div id="summary" style="display:none"></div>
       <div class="scrollable" id="listOut">
         <div class="output-empty">Results will appear here.</div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
     </div>
   </div>
 </div>
@@ -90,9 +92,20 @@ const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
 const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
 const resetBtn = document.getElementById('resetBtn');
 let undoMode = false;
+let resetPagehideHandler = null;
 
-function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
-function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+function enterUndoMode() {
+  undoMode = true;  resetBtn.innerHTML = UNDO_HTML;
+  resetPagehideHandler = () => localStorage.removeItem(STORAGE_KEY);
+  window.addEventListener('pagehide', resetPagehideHandler);
+}
+function exitUndoMode()  {
+  undoMode = false; resetBtn.innerHTML = RESET_HTML;
+  if (resetPagehideHandler) {
+    window.removeEventListener('pagehide', resetPagehideHandler);
+    resetPagehideHandler = null;
+  }
+}
 
 function clearResults() {
   document.getElementById('listOut').innerHTML = '<div class="output-empty">Results will appear here.</div>';
@@ -200,11 +213,12 @@ function compute() {
   const n = parseInt(document.getElementById('avgLen').value);
   if (isNaN(n) || n < 3) { errMsg.textContent = 'Minimum length is 3.'; return; }
 
-  debugger;
   const result = parsePaste(raw);
   if (!result) error(); // code returns here
   const {decimals, length, r, timeList} = result;
-  localStorage.setItem(STORAGE_KEY, timeList.join(', '));
+  localStorage.setItem(STORAGE_KEY, timeList.map(t => {
+    let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
+  }).join(', '));
 
   const results = [];
   for (let i = 0; i <= length - n; i++) {

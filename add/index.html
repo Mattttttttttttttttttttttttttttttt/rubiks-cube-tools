@@ -18,10 +18,15 @@
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
     .solve-error {
       font-family: var(--font-mono); font-size: 0.65rem;
-      color: #c41e3a; padding-left: 30px;
-      display: none;
+      color: #d86074; padding-left: 30px;
+      display: none; align-items: center; gap: 5px;
     }
-    .solve-error.visible { display: block; }
+    .solve-error::before {
+      content: ''; display: inline-block; width: 12px; height: 11px; flex-shrink: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M10 2L2 16h16L10 2z' fill='none' stroke='%23d86074' stroke-width='2.8' stroke-linejoin='round'/%3E%3Crect x='9.1' y='7' width='1.8' height='5' rx='.9' fill='%23d86074'/%3E%3Ccircle cx='10' cy='14' r='1.1' fill='%23d86074'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-size: contain; background-position: center;
+    }
+    .solve-error.visible { display: flex; }
 
     .remove-btn {
       background: none; border: none; color: var(--text-muted);
@@ -47,7 +52,7 @@
       background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
     }
 
-    .output-box { flex: none; min-height: 0; }
+    .output-box { min-height: 0; }
     .output-sum-str {
       font-family: var(--font-mono); font-size: 0.8rem;
       color: var(--text-dim); line-height: 2; word-break: break-all;
@@ -79,6 +84,7 @@
         <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
         <div class="panel-sub">Updates live as you type</div>
       </div>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
       <div class="output-box" id="outputBox">
         <div id="emptyMsg" class="output-empty">Add at least one time on the left.</div>
         <div id="sumDisplay" style="display:none">
@@ -86,7 +92,6 @@
           <div class="output-sum-str" id="sumStr"></div>
         </div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
     </div>
 
   </div>
@@ -101,6 +106,7 @@ buildNav('add');
 let solves = []; // { raw: string, penalty: null|'p2'|'dnf' }
 let undoMode = false;
 let suppressSave = false;
+let resetPagehideHandler = null;
 const STORAGE_KEY = 'cube-tool-solves';
 const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
 const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
@@ -190,8 +196,18 @@ function saveToStorage() {
   localStorage.setItem(STORAGE_KEY, serializeSolves());
 }
 
-function enterUndoMode() { undoMode = true;  resetBtn.innerHTML = UNDO_HTML; }
-function exitUndoMode()  { undoMode = false; resetBtn.innerHTML = RESET_HTML; }
+function enterUndoMode() {
+  undoMode = true;  resetBtn.innerHTML = UNDO_HTML;
+  resetPagehideHandler = () => localStorage.removeItem(STORAGE_KEY);
+  window.addEventListener('pagehide', resetPagehideHandler);
+}
+function exitUndoMode()  {
+  undoMode = false; resetBtn.innerHTML = RESET_HTML;
+  if (resetPagehideHandler) {
+    window.removeEventListener('pagehide', resetPagehideHandler);
+    resetPagehideHandler = null;
+  }
+}
 
 function parseSolveStr(v) {
   v = v.trim(); if (!v) return null;
@@ -216,7 +232,7 @@ function restoreFromStorage() {
   if (parsed.length) {
     parsed.forEach(s => { solves.push(s); solveList.appendChild(createEntryEl(solves.length - 1)); });
     updateRemoveBtns(); recompute();
-  } else { addRow(false); addRow(false); addRow(true); }
+  } else addRow(true);
   suppressSave = false;
 }
 
@@ -224,7 +240,7 @@ function triggerReset() {
   if (undoMode) return;
   suppressSave = true;
   solves = []; solveList.innerHTML = '';
-  addRow(false); addRow(false); addRow(true);
+  addRow(true);
   suppressSave = false;
   enterUndoMode();
 }
@@ -551,7 +567,7 @@ if (localStorage.getItem(STORAGE_KEY)) {
   restoreFromStorage();
 } else {
   suppressSave = true;
-  addRow(false); addRow(false); addRow(true);
+  addRow(true);
   suppressSave = false;
 }
 </script>
