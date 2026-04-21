@@ -6,10 +6,12 @@
   <link rel="stylesheet" href="../shared/style.css">
   <style>
     .mega-split { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - var(--nav-h)); }
-    .mega-panel { padding: 22px var(--side-pad); display: flex; flex-direction: column; position: relative; }
+    .mega-panel { padding: 22px var(--side-pad); display: flex; flex-direction: column; }
     .mega-panel + .mega-panel { border-left: 1px solid var(--border); }
-    .mega-textarea { flex: 1; width: 100%; resize: none; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9; }
-    .copy-corner { position: absolute; top: 14px; right: var(--side-pad); }
+    .mega-textarea { flex: none; min-height: 7lh; field-sizing: content; width: 100%; resize: none; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9; }
+    #copyBtn { width: 100%; justify-content: center; margin-bottom: 10px; transition: color .15s, border-color .15s; }
+    #copyBtn.flash { color: #4a9e6b !important; border-color: #4a9e6b !important; }
+    #wcaOut { min-height: calc(7lh - 35px); }
     .legend { margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 0.72rem; line-height: 1.8; color: var(--text-dim); }
     .legend code { font-family: var(--font-mono); color: var(--accent); }
     @media (max-width: 700px) { .mega-split { grid-template-columns: 1fr; height: auto; } }
@@ -24,20 +26,14 @@
         <div class="panel-title"><span class="dot"></span>Carrot notation</div>
         <div class="panel-sub">Type or paste — converts live</div>
       </div>
-      <textarea class="mega-textarea" id="carrotIn" placeholder="++ --&#10;-- ++&#10;U&#10;-+ +-&#10;U'" spellcheck="false"></textarea>
-      <div class="legend">
-        <div><code>++</code> &rarr; R++ D++ &nbsp;&nbsp; <code>--</code> &rarr; R-- D--</div>
-        <div><code>+-</code> &rarr; R++ D-- &nbsp;&nbsp; <code>-+</code> &rarr; R-- D++</div>
-        <div><code>U</code> / <code>U'</code> &mdash; passed through unchanged</div>
-        <div>One move pair per token, space-separated on each line.</div>
-      </div>
+      <textarea class="mega-textarea" id="carrotIn" placeholder="Paste a carrot scramble..." spellcheck="false"></textarea>
     </div>
     <div class="mega-panel">
       <div class="panel-header">
         <div class="panel-title"><span class="dot" style="background:#555"></span>WCA notation</div>
         <div class="panel-sub">Read-only output</div>
       </div>
-      <button class="btn btn-ghost btn-sm copy-corner" id="copyBtn">Copy</button>
+      <button class="btn btn-ghost" id="copyBtn">Copy results</button>
       <textarea class="mega-textarea" id="wcaOut" readonly placeholder="WCA notation will appear here&hellip;" spellcheck="false"></textarea>
     </div>
   </div>
@@ -67,10 +63,29 @@ document.getElementById('carrotIn').addEventListener('input', function() {
   document.getElementById('wcaOut').value = convert(this.value);
 });
 
-document.getElementById('copyBtn').addEventListener('click', function() {
+const copyBtn = document.getElementById('copyBtn');
+
+copyBtn.addEventListener('click', function() {
   navigator.clipboard.writeText(document.getElementById('wcaOut').value);
   var old = this.textContent; this.textContent = 'Copied!';
-  setTimeout(function() { document.getElementById('copyBtn').textContent = old; }, 1500);
+  this.classList.add('flash');
+  setTimeout(function() {
+    document.getElementById('copyBtn').textContent = old;
+    document.getElementById('copyBtn').classList.remove('flash');
+  }, 1500);
+});
+
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.key !== 'c') return;
+  const active = document.activeElement;
+  const hasInputSel = active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+    active.selectionStart !== active.selectionEnd;
+  const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+  if (!hasInputSel && !hasTextSel) {
+    e.preventDefault();
+    copyBtn.click();
+  }
 });
 </script>
 </body>
