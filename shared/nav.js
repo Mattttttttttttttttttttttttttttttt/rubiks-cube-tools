@@ -10,7 +10,7 @@ export const TOOLS = [
   { path: 'add',     label: 'Time Add',     longLabel: 'Time Adder',                  color: '#c41e3a' },
   { path: 'filter',  label: 'Alg Filter',   longLabel: 'Algorithm Filter',            color: '#00a6d6' },
   { path: 'mega',    label: 'Mega Scram',   longLabel: 'Megaminx Scramble Converter', color: '#ff6b6b' },
-  { path: 'sq1',     label: 'SQ1 Norm',     longLabel: 'Square-1 Normalizer',         color: '#ffa500' },
+  { path: 'squan',   label: 'Squan Norm',   longLabel: 'Square-1 Normalizer',         color: '#ffa500' },
   { path: 'oblp',    label: 'OBLP',         longLabel: 'OBLP Trainer',                color: '#a0e080' },
   { path: 'notation',label: 'Notation',     longLabel: 'Notation Converter',          color: '#e0a0ff' },
 ];
