@@ -5,61 +5,147 @@
   <title>Notation — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .notation-wrap{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - var(--nav-h))}
-    @media(max-width:700px){.notation-wrap{grid-template-columns:1fr;height:auto}}
-    .kbd-panel{padding:22px;overflow-y:auto;display:flex;flex-direction:column}
-    .kbd-panel+.kbd-panel{border-left:1px solid var(--border)}
-    .input-textarea{width:100%;min-height:90px;resize:vertical;font-family:var(--font-mono);font-size:0.9rem;letter-spacing:0.06em}
-    .out-textarea{width:100%;flex:1;resize:none;font-family:var(--font-mono);font-size:0.9rem;letter-spacing:0.06em;min-height:90px}
-    .keyboard{display:flex;flex-direction:column;gap:4px;margin-top:18px}
-    .kbd-row{display:flex;gap:4px}
-    .key{
-      min-width:40px;height:42px;padding:0 6px;
-      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-      font-size:0.58rem;position:relative;
+    /* ── Layout ── */
+    .notation-wrap {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--nav-h));
     }
-    .key .k{color:var(--text-muted);font-family:var(--font-mono)}
-    .key .v{color:var(--accent);font-family:var(--font-mono);font-size:0.65rem;font-weight:600}
-    .key.pressed{background:var(--surface-2);border-color:var(--border-2)}
-    .key.wide{min-width:60px}
-    .key.spacer{background:transparent;border-color:transparent}
+    .ubox-panel {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+    }
+    .kbd-bottom {
+      border-top: 1px solid var(--border);
+      padding: 14px 22px 18px;
+      display: flex;
+      justify-content: center;
+    }
+    @media(max-width:700px) { .notation-wrap { height: auto; } }
+
+    /* ── U-box ── */
+    #ubox {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      letter-spacing: 0.06em;
+      line-height: 1.8;
+      color: var(--text);
+      width: 100%;
+      resize: none;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      outline: none;
+      caret-color: var(--accent);
+      transition: border-color 0.12s;
+    }
+    #ubox:focus { border-color: var(--accent); }
+
+    /* ── Keyboard ── */
+    .keyboard { display: flex; flex-direction: column; gap: 5px; }
+    .kbd-row  { display: flex; gap: 5px; }
+
+    .key {
+      min-width: 52px; height: 56px; padding: 0 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      font-size: 0.65rem;
+      transition: background 0.28s, border-color 0.28s, box-shadow 0.28s;
+    }
+    .key .k { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.67rem; }
+    .key .v { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; }
+
+    .key.pressed {
+      background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+      border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+      box-shadow: inset 0 0 8px color-mix(in srgb, var(--accent) 8%, transparent);
+      transition: background 0.04s, border-color 0.04s, box-shadow 0.04s;
+    }
+    .key.pressed .k { color: var(--text-dim); }
+    .key.pressed .v { filter: brightness(1.15); }
+
+    .key.wide   { min-width: 72px; }
+    .key.spacer { background: transparent; border-color: transparent; }
+
+    /* ── Copy button ── */
+    #copyBtn {
+      margin-bottom: 8px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #copyBtn.flash {
+      color: #4a9e6b !important;
+      border-color: #4a9e6b !important;
+    }
+
+    /* ── Key tip popup ── */
+    .key-tip {
+      position: fixed;
+      top: calc(var(--nav-h) + 10px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-6px);
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius);
+      padding: 6px 16px;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 300;
+      white-space: nowrap;
+    }
+    .key-tip.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
 <div id="nav"></div>
 <div class="page">
   <div class="notation-wrap">
-    <!-- Left: input + keyboard -->
-    <div class="kbd-panel">
+
+    <!-- ── U-box panel ── -->
+    <div class="ubox-panel">
       <div class="panel-header">
-        <div class="panel-title"><span class="dot"></span>Natural input</div>
-        <div class="panel-sub">Type using home-row coding — converts live</div>
+        <div class="panel-title"><span class="dot"></span>Notation</div>
+        <div class="panel-sub">Type to convert · click to reposition · backspace removes whole token</div>
       </div>
-      <div class="input-group">
-        <label class="label">Your input</label>
-        <textarea class="input-textarea" id="codeIn" placeholder="e.g. iikk (RR')" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
-      </div>
-      <div class="divider"></div>
-      <div class="label">Key map</div>
+      <button class="btn btn-ghost" id="copyBtn">Copy results</button>
+      <textarea id="ubox"
+        spellcheck="false"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        autofocus
+        placeholder="Start typing…"></textarea>
+    </div>
+
+    <!-- ── Bottom: keyboard ── -->
+    <div class="kbd-bottom">
       <div class="keyboard" id="keyboard"></div>
     </div>
 
-    <!-- Right: output -->
-    <div class="kbd-panel">
-      <div class="panel-header">
-        <div class="panel-title"><span class="dot" style="background:#555"></span>Cube notation</div>
-        <div class="panel-sub">Read-only</div>
-      </div>
-      <button class="btn btn-ghost btn-sm mb-8" id="copyBtn">Copy</button>
-      <textarea class="out-textarea" id="notOut" readonly placeholder="Output appears here…" spellcheck="false"></textarea>
-    </div>
   </div>
 </div>
+
 <script type="module">
 import { buildNav } from '../shared/nav.js';
 buildNav('notation');
 
+// ── Data ─────────────────────────────────────────────────────────────────────
 const DICT = {
   'i':'R',  'k':"R'", 'j':'U',  'f':"U'", 'd':'L',  'e':"L'",
   'h':'F',  'g':"F'", 'w':'B',  'o':"B'", 's':'D',  'l':"D'",
@@ -69,90 +155,347 @@ const DICT = {
   ';':'y',  'a':"y'", 'p':'z',  'q':"z'"
 };
 
-// Keyboard layout for visual
-const ROWS = [
+const KEYBOARD_ROWS = [
+  ['1','2','3','4','5','','6','7','8','9','0'],
   ['q','w','e','r','t','','y','u','i','o','p'],
   ['a','s','d','f','g','','h','j','k','l',';'],
-  ['z','x','c','v','b','','n','m','-','.','/',]
+  ['z','x','c','v','b','','n','m','-','.','/',],
 ];
 
-const keyboard = document.getElementById('keyboard');
-const pressedKeys = new Set();
-
-ROWS.forEach(row => {
+// ── Keyboard UI ───────────────────────────────────────────────────────────────
+const keyboardEl = document.getElementById('keyboard');
+KEYBOARD_ROWS.forEach(row => {
   const rowDiv = document.createElement('div');
   rowDiv.className = 'kbd-row';
   row.forEach(k => {
     const key = document.createElement('div');
-    if (!k) { key.className = 'key spacer'; }
-    else {
+    if (!k) {
+      key.className = 'key spacer';
+    } else {
       key.className = 'key';
       key.dataset.key = k;
-      const kSpan = document.createElement('div');
-      kSpan.className = 'k'; kSpan.textContent = k;
-      const vSpan = document.createElement('div');
-      vSpan.className = 'v'; vSpan.textContent = DICT[k] ?? '';
+      const kSpan = document.createElement('div'); kSpan.className = 'k'; kSpan.textContent = k;
+      const vSpan = document.createElement('div'); vSpan.className = 'v'; vSpan.textContent = DICT[k] ?? '';
       key.append(kSpan, vSpan);
     }
     rowDiv.appendChild(key);
   });
-  keyboard.appendChild(rowDiv);
+  keyboardEl.appendChild(rowDiv);
 });
 
-function convert(code) {
-  const moves = [];
-  const chars = [...code.toLowerCase()];
-  let i = 0;
-  while (i < chars.length) {
-    const ch = chars[i];
-    if (ch === '\n' || ch === ' ') { moves.push('\n'); i++; continue; }
-    const mapped = DICT[ch];
-    if (!mapped) { i++; continue; }
-    // Double = 2 move
-    if (i + 1 < chars.length && chars[i+1] === ch) {
-      moves.push(mapped[0] + '2');
-      i += 2;
-    } else {
-      moves.push(mapped);
-      i++;
-    }
-  }
-  // Build output: join with spaces, newlines become newlines
-  const lines = moves.join('\u0000').split('\n').map(seg =>
-    seg.split('\u0000').filter(Boolean).join(' ')
-  );
-  return lines.join('\n');
-}
-
-const codeIn = document.getElementById('codeIn');
-const notOut = document.getElementById('notOut');
-const copyBtn = document.getElementById('copyBtn');
-
-codeIn.addEventListener('input', () => {
-  notOut.value = convert(codeIn.value);
-});
-
-// Highlight keys on press
+const pressedTimeouts = new Map();
 document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
-  pressedKeys.add(k);
-  document.querySelectorAll('.key').forEach(el => {
-    if (el.dataset.key === k) el.classList.add('pressed');
-  });
+  clearTimeout(pressedTimeouts.get(k));
+  pressedTimeouts.delete(k);
+  document.querySelectorAll(`.key[data-key="${CSS.escape(k)}"]`).forEach(el => el.classList.add('pressed'));
 });
 document.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
-  pressedKeys.delete(k);
-  document.querySelectorAll('.key').forEach(el => {
-    if (el.dataset.key === k) el.classList.remove('pressed');
-  });
+  pressedTimeouts.set(k, setTimeout(() => {
+    document.querySelectorAll(`.key[data-key="${CSS.escape(k)}"]`).forEach(el => el.classList.remove('pressed'));
+    pressedTimeouts.delete(k);
+  }, 90));
 });
 
-copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(notOut.value);
-  const old = copyBtn.textContent; copyBtn.textContent = 'Copied!';
-  setTimeout(() => copyBtn.textContent = old, 1500);
+// ── showTip ───────────────────────────────────────────────────────────────────
+let tipEl = null, tipTimeout;
+function showTip(msg) {
+  if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'key-tip'; document.body.appendChild(tipEl); }
+  tipEl.textContent = msg;
+  tipEl.classList.add('show');
+  clearTimeout(tipTimeout);
+  tipTimeout = setTimeout(() => tipEl.classList.remove('show'), 2500);
+}
+
+// ── Token engine ──────────────────────────────────────────────────────────────
+function processInput(text) {
+  const tokens = [];
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i].toLowerCase();
+    if (ch === '\n' || ch === ' ') {
+      tokens.push({ idx: tokens.length, inStart: i, inEnd: i + 1, type: ch === '\n' ? 'nl' : 'sp' });
+      i++;
+    } else {
+      const mapped = DICT[ch];
+      if (!mapped) {
+        tokens.push({ idx: tokens.length, inStart: i, inEnd: i + 1, type: 'unknown' });
+        i++;
+      } else if (i + 1 < text.length && text[i + 1].toLowerCase() === ch) {
+        tokens.push({ idx: tokens.length, inStart: i, inEnd: i + 2, type: 'move', out: mapped[0] + '2' });
+        i += 2;
+      } else {
+        tokens.push({ idx: tokens.length, inStart: i, inEnd: i + 1, type: 'move', out: mapped });
+        i++;
+      }
+    }
+  }
+  return tokens;
+}
+
+function buildOutputWithPositions(tokens) {
+  const lineGroups = [[]];
+  for (const tok of tokens) {
+    if (tok.type === 'nl' || tok.type === 'sp') lineGroups.push([]);
+    else if (tok.type === 'move') lineGroups[lineGroups.length - 1].push(tok);
+  }
+  // Only trim leading empty groups; keep trailing so the cursor can sit after a newline
+  while (lineGroups.length > 1 && lineGroups[0].length === 0) lineGroups.shift();
+
+  let outStr = '';
+  const outPositions = [];
+  for (let gi = 0; gi < lineGroups.length; gi++) {
+    if (gi > 0) outStr += '\n';
+    lineGroups[gi].forEach((tok, ti) => {
+      if (ti > 0) outStr += ' ';
+      const outStart = outStr.length;
+      outStr += tok.out;
+      outPositions.push({ tok, outStart, outEnd: outStr.length });
+    });
+  }
+  return { outStr, outPositions };
+}
+
+// ── Cursor mapping ────────────────────────────────────────────────────────────
+// inputPosToOutCursor: maps a raw inputStr position to the visual output cursor.
+// Handles separator territory (between/before/after move tokens) correctly.
+function inputPosToOutCursor(inputPos, outPositions, outStrLen) {
+  if (outPositions.length === 0) return 0;
+  const last = outPositions[outPositions.length - 1];
+  // Past the last move token → trailing-separator territory → end of outStr
+  if (inputPos > last.tok.inEnd) return outStrLen;
+  if (inputPos === last.tok.inEnd) return last.outEnd;
+  for (let i = 0; i < outPositions.length; i++) {
+    const p   = outPositions[i];
+    const prev = i > 0 ? outPositions[i - 1] : null;
+    const prevInEnd  = prev ? prev.tok.inEnd : 0;
+    const prevOutEnd = prev ? prev.outEnd     : 0;
+    if (inputPos <= prevInEnd)    return prevOutEnd;   // at/touching previous token end
+    if (inputPos < p.tok.inStart) return p.outStart;   // in separator gap → snap to next token start
+    if (inputPos <= p.tok.inEnd) {
+      const dS = inputPos - p.tok.inStart, dE = p.tok.inEnd - inputPos;
+      return dS <= dE ? p.outStart : p.outEnd;         // within token → nearest side
+    }
+  }
+  return outStrLen;
+}
+
+// outCursorToInputPos: inverse — click position in output → position in inputStr.
+function outCursorToInputPos(outCursor, outPositions, inputStrLen) {
+  if (outPositions.length === 0) return 0;
+  const last = outPositions[outPositions.length - 1];
+  if (outCursor >= last.outEnd) return inputStrLen ?? last.tok.inEnd;
+  for (let i = 0; i < outPositions.length; i++) {
+    const p          = outPositions[i];
+    const prevOutEnd = i > 0 ? outPositions[i - 1].outEnd    : 0;
+    const prevInEnd  = i > 0 ? outPositions[i - 1].tok.inEnd : 0;
+    if (outCursor <= p.outStart) {
+      const dB = outCursor - prevOutEnd, dA = p.outStart - outCursor;
+      return dB <= dA ? prevInEnd : p.tok.inStart;
+    }
+    if (outCursor < p.outEnd) {
+      const dS = outCursor - p.outStart, dE = p.outEnd - outCursor;
+      return dS < dE ? p.tok.inStart : p.tok.inEnd;
+    }
+  }
+  return inputStrLen ?? last.tok.inEnd;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let inputStr = '';
+let cursorInputPos = 0;
+let currentTokens = [];
+let currentOutPositions = [];
+let currentOutStr = '';
+const ubox = document.getElementById('ubox');
+
+// ── Undo / Redo ───────────────────────────────────────────────────────────────
+const undoStack = [], redoStack = [];
+const HISTORY_LIMIT = 100;
+function saveHistory() {
+  undoStack.push({ inputStr, cursorInputPos });
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack.length = 0;
+}
+function applyHistoryState(s) {
+  inputStr = s.inputStr;
+  cursorInputPos = s.cursorInputPos;
+  fullUpdate();
+}
+
+function renderUbox() {
+  const { outStr, outPositions } = buildOutputWithPositions(currentTokens);
+  currentOutPositions = outPositions;
+  currentOutStr = outStr;
+  if (ubox.value !== outStr) ubox.value = outStr;
+  const c = inputPosToOutCursor(cursorInputPos, outPositions, outStr.length);
+  ubox.setSelectionRange(c, c);
+}
+
+function fullUpdate() {
+  currentTokens = processInput(inputStr);
+  renderUbox();
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+const copyBtn = document.getElementById('copyBtn');
+let flashTimeout;
+function flashCopy() {
+  copyBtn.textContent = 'Copied!';
+  copyBtn.classList.add('flash');
+  clearTimeout(flashTimeout);
+  flashTimeout = setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('flash'); }, 1500);
+}
+copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(ubox.value); flashCopy(); });
+
+// ── Selection deletion ────────────────────────────────────────────────────────
+function deleteSelectedTokens() {
+  const selStart = ubox.selectionStart, selEnd = ubox.selectionEnd;
+  if (selStart === selEnd) return false;
+  // Any move token whose output range overlaps the selection
+  const touched = currentOutPositions.filter(p => p.outStart < selEnd && p.outEnd > selStart);
+  if (!touched.length) return false;
+  const firstInStart = touched[0].tok.inStart; // cursor lands here after deletion
+  // Delete in reverse input order so earlier positions stay valid
+  const sorted = [...touched].sort((a, b) => b.tok.inStart - a.tok.inStart);
+  let str = inputStr;
+  for (const p of sorted) str = str.slice(0, p.tok.inStart) + str.slice(p.tok.inEnd);
+  inputStr = str;
+  cursorInputPos = firstInStart;
+  return true;
+}
+
+// ── Shared ctrl handler (works focused or not) ────────────────────────────────
+function handleCtrl(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
+  if (e.key === 'c') {
+    if (ubox.selectionStart === ubox.selectionEnd) {
+      e.preventDefault();
+      navigator.clipboard.writeText(ubox.value);
+      flashCopy();
+    }
+    return true;
+  }
+  if (e.key === 'z') {
+    e.preventDefault();
+    if (undoStack.length) { redoStack.push({ inputStr, cursorInputPos }); applyHistoryState(undoStack.pop()); }
+    return true;
+  }
+  if (e.key === 'y') {
+    e.preventDefault();
+    if (redoStack.length) { undoStack.push({ inputStr, cursorInputPos }); applyHistoryState(redoStack.pop()); }
+    return true;
+  }
+  return false; // e.g. let browser handle
+}
+
+// ── U-box keydown ─────────────────────────────────────────────────────────────
+ubox.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey) {
+    handleCtrl(e);
+    return;
+  }
+  if (e.altKey) return;
+
+  const moveToks = currentTokens.filter(t => t.type === 'move');
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    const gaps = [0, ...moveToks.map(t => t.inEnd)];
+    const prev = [...gaps].reverse().find(g => g < cursorInputPos);
+    cursorInputPos = prev ?? 0;
+    renderUbox(); return;
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    const gaps = [...moveToks.map(t => t.inEnd), inputStr.length];
+    const next = gaps.find(g => g > cursorInputPos);
+    cursorInputPos = next ?? inputStr.length;
+    renderUbox(); return;
+  }
+  if (e.key === 'Home')   { e.preventDefault(); cursorInputPos = 0;               renderUbox(); return; }
+  if (e.key === 'End')    { e.preventDefault(); cursorInputPos = inputStr.length;  renderUbox(); return; }
+  if (e.key === 'Tab' || e.key === 'Escape') { e.preventDefault(); return; }
+
+  // ── Deletion ──────────────────────────────────────────────────────────────
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    saveHistory();
+    if (deleteSelectedTokens()) { fullUpdate(); return; }
+    let tokToDelete = null;
+    for (const t of moveToks) { if (t.inEnd <= cursorInputPos) tokToDelete = t; }
+    if (tokToDelete) {
+      inputStr = inputStr.slice(0, tokToDelete.inStart) + inputStr.slice(tokToDelete.inEnd);
+      cursorInputPos = tokToDelete.inStart;
+    }
+    fullUpdate(); return;
+  }
+  if (e.key === 'Delete') {
+    e.preventDefault();
+    saveHistory();
+    if (deleteSelectedTokens()) { fullUpdate(); return; }
+    let tokToDelete = null;
+    for (const t of moveToks) { if (t.inStart >= cursorInputPos) { tokToDelete = t; break; } }
+    if (tokToDelete) inputStr = inputStr.slice(0, tokToDelete.inStart) + inputStr.slice(tokToDelete.inEnd);
+    fullUpdate(); return;
+  }
+
+  // ── Separator (Enter and Space both insert a line break) ──────────────────
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveHistory();
+    deleteSelectedTokens();
+    inputStr = inputStr.slice(0, cursorInputPos) + '\n' + inputStr.slice(cursorInputPos);
+    cursorInputPos++;
+    fullUpdate(); return;
+  }
+
+  // ── Character input ───────────────────────────────────────────────────────
+  if (e.key.length === 1) {
+    e.preventDefault();
+    const ch = e.key.toLowerCase();
+    if (ch === ' ') {
+      // Space = line break, same as Enter
+      saveHistory();
+      deleteSelectedTokens();
+      inputStr = inputStr.slice(0, cursorInputPos) + '\n' + inputStr.slice(cursorInputPos);
+      cursorInputPos++;
+      fullUpdate(); return;
+    }
+    if (!DICT[ch]) { showTip('Keep typing in virtual notation! Your output gets auto-converted.'); return; }
+    saveHistory();
+    deleteSelectedTokens();
+    inputStr = inputStr.slice(0, cursorInputPos) + ch + inputStr.slice(cursorInputPos);
+    cursorInputPos++;
+    fullUpdate();
+  }
 });
+
+// ── Click snapping ────────────────────────────────────────────────────────────
+ubox.addEventListener('click', e => {
+  if (e.shiftKey) return;
+  // If the user drag-selected, preserve the selection so Backspace/Delete can act on it
+  if (ubox.selectionStart !== ubox.selectionEnd) return;
+  cursorInputPos = outCursorToInputPos(ubox.selectionStart, currentOutPositions, inputStr.length);
+  renderUbox();
+});
+
+// ── Global type-to-focus ──────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (document.activeElement === ubox) return;
+  if (e.ctrlKey || e.metaKey) { handleCtrl(e); return; }
+  if (e.altKey) return;
+  if (e.key.length !== 1) return;
+  e.preventDefault();
+  ubox.focus();
+  ubox.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, bubbles: true, cancelable: true }));
+}, { capture: true });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+fullUpdate();
 </script>
 </body>
 </html>
