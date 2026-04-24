@@ -6,20 +6,22 @@
   <link rel="stylesheet" href="../shared/style.css">
   <style>
     .fc-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - var(--nav-h));gap:24px;padding:32px}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;max-width:520px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.15s,transform 0.1s;user-select:none}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;max-width:560px;padding:36px 40px 32px;text-align:center;cursor:pointer;transition:border-color 0.15s,transform 0.1s;user-select:none}
     .card:active{transform:scale(0.99)}
     .card:hover{border-color:var(--border-2)}
     .card-memo{font-family:var(--font-mono);font-size:2.6rem;font-weight:600;letter-spacing:.06em;color:var(--text);line-height:1}
-    .card-tag{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-top:6px}
-    .card-answer{font-family:var(--font-display);font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;color:var(--accent);margin-top:16px;min-height:2rem}
-    .card-time{font-family:var(--font-mono);font-size:0.82rem;color:var(--text-dim);margin-top:8px}
+    .card-invert{font-family:var(--font-mono);font-size:0.78rem;color:#808080;margin-top:5px;min-height:1.15em;letter-spacing:0.05em}
+    .card-tag{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-top:8px}
+    .card-viz{display:flex;justify-content:center;align-items:center;margin-top:14px;margin-bottom:2px;min-height:0;overflow:visible}
+    .card-viz .squan{overflow:visible}
+    .card-answer{font-family:var(--font-display);font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;color:var(--accent);margin-top:10px;min-height:2rem}
+    .card-time{font-family:var(--font-mono);font-size:0.82rem;color:var(--text-dim);margin-top:6px}
     .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
     .mode-switch{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
     .mode-btn{font-family:var(--font-ui);font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:6px 14px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:all 0.12s}
     .mode-btn.active{background:var(--accent);color:#000}
     .stats-bar{display:flex;gap:20px;font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono)}
     .stats-bar span em{color:var(--text);font-style:normal}
-    .hint{font-size:0.72rem;color:var(--text-muted);text-align:center}
     .revealed .card{border-color:var(--accent)}
   </style>
 </head>
@@ -41,36 +43,114 @@
 
     <div class="card" id="flashcard">
       <div class="card-memo" id="memoText">—</div>
+      <div class="card-invert" id="invertTag"></div>
       <div class="card-tag" id="memoTag">Click to reveal</div>
+      <div class="card-viz" id="vizArea"></div>
       <div class="card-answer" id="answerText"></div>
       <div class="card-time" id="timeText"></div>
     </div>
-
-    <div class="hint" id="hintText">Click the card to reveal the case name, then again for the next.</div>
   </div>
 </div>
 <script type="module">
 import { buildNav } from '../shared/nav.js';
 import {
   TOTAL_CORNERS, TOTAL_EDGES, CORNERS, EDGES,
-  sortOblp, toLayerName, toCaseName
-} from '../shared/sq1lib.js';
+  sortOblp, toLayerName, toCaseName,
+} from './sq1lib.js';
+import { getSVG, setPieceColor, resetPiecesColors } from './draw.js';
+
 buildNav('oblp');
 
-let oneface = false;
-let state = 'question'; // 'question' | 'revealed'
+// ── OBL digit → piece sticker id ─────────────────────────────────────────────
+//
+// Memo digits 1–8 go clockwise from the top-left corner of the drawn face.
+// Both layers share the same visual layout: 1=TL corner, 2=top edge,
+// 3=TR corner, 4=right edge, 5=BR corner, 6=bottom edge, 7=BL corner, 8=left edge.
+//
+// Derived from draw.js angle calculations (solved hex top='011233455677'
+// bottom='998bbaddcffe', layerOffset top=15 bottom=-195):
+//
+//   top layer:
+//     corner '1' → -45°  → 10:30 (TL) → memo 1
+//     edge   '0' →   0°  → 12:00 (T)  → memo 2
+//     corner '7' → -315° →  1:30 (TR) → memo 3
+//     edge   '6' → -270° →  3:00 (R)  → memo 4
+//     corner '5' → -225° →  4:30 (BR) → memo 5
+//     edge   '4' → -180° →  6:00 (B)  → memo 6
+//     corner '3' → -135° →  7:30 (BL) → memo 7
+//     edge   '2' →  -90° →  9:00 (L)  → memo 8
+//
+//   bottom layer:
+//     corner 'd' → -45°  → 10:30 (TL) → memo 1
+//     edge   'a' →   0°  → 12:00 (T)  → memo 2
+//     corner 'b' → -315° →  1:30 (TR) → memo 3
+//     edge   '8' → -270° →  3:00 (R)  → memo 4
+//     corner '9' → -225° →  4:30 (BR) → memo 5
+//     edge   'e' → -180° →  6:00 (B)  → memo 6
+//     corner 'f' → -135° →  7:30 (BL) → memo 7
+//     edge   'c' →  -90° →  9:00 (L)  → memo 8
+
+const TOP_IDS = { '1':'1 top','2':'0 inner','3':'7 top','4':'6 inner',
+                  '5':'5 top','6':'4 inner','7':'3 top','8':'2 inner' };
+const BOT_IDS = { '1':'d top','2':'a inner','3':'b top','4':'8 inner',
+                  '5':'9 top','6':'e inner','7':'f top','8':'c inner' };
+
+const SOLVED_HEX = '011233455677998bbaddcffe';
+
+function drawOblViz(memoStr, inverted) {
+  const parts = memoStr.trim().split(/\s+/);
+
+  // non-inverted: parts[0]=bottom face (right SVG), parts[1]=top face (left SVG)
+  // inverted:     parts[0]=top face (left SVG),     parts[1]=bottom face (right SVG)
+  const topMemo = parts.length === 2
+    ? (inverted ? parts[0] : parts[1])
+    : parts[0];
+  const botMemo = parts.length === 2
+    ? (inverted ? parts[1] : parts[0])
+    : '';
+
+  resetPiecesColors();
+
+  let OBLcolortop, OBLcolorbottom;
+  if (inverted) {
+    OBLcolortop = "top";
+    // inversion happens on the other layer
+    OBLcolorbottom = topMemo.length < 4 ? "bottom" : "top";
+  } else {
+    OBLcolorbottom = "top";
+    // inversion happens on the other layer
+    OBLcolortop = botMemo.length < 4 ? "bottom" : "top";
+  }
+  const theOtherColor = {"top": "bottom", "bottom": "top"};
+  for (const digit of "12345678") if (TOP_IDS[digit]) setPieceColor(TOP_IDS[digit], theOtherColor[OBLcolortop]);
+  for (const digit of topMemo) if (TOP_IDS[digit]) setPieceColor(TOP_IDS[digit], OBLcolortop);
+
+  for (const digit of "12345678") if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], theOtherColor[OBLcolorbottom]);
+  for (const digit of botMemo) if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], OBLcolorbottom);
+
+  return getSVG(SOLVED_HEX, 220, 6, true);
+}
+
+// ── Trainer state ─────────────────────────────────────────────────────────────
+
+let oneface  = false;
+let state    = 'question';
 let startTime = 0;
-let memo = '';
-let times = [];
+let memo     = '';
+let inverted = false;
+let times    = [];
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function nextCard() {
-  state = 'question';
+  state    = 'question';
+  inverted = false;
   document.getElementById('flashcard').classList.remove('revealed');
   document.getElementById('answerText').textContent = '';
-  document.getElementById('timeText').textContent = '';
-  document.getElementById('memoTag').textContent = 'Click to reveal';
+  document.getElementById('timeText').textContent   = '';
+  document.getElementById('memoTag').textContent    = 'Click to reveal';
+  document.getElementById('vizArea').innerHTML      = '';
+  document.getElementById('invertTag').textContent  = '';
 
   if (oneface) {
     const corner = rand(TOTAL_CORNERS);
@@ -78,15 +158,20 @@ function nextCard() {
     if (!corner && !edge) { nextCard(); return; }
     memo = sortOblp(corner + edge);
   } else {
-    const GROUPS = CORNERS.length;
+    const GROUPS   = CORNERS.length;
     const corners1 = rand(TOTAL_CORNERS);
     const edges1   = rand(TOTAL_EDGES);
     const corners2 = rand(CORNERS[GROUPS - 1 - corners1.length]);
     const edges2   = rand(EDGES[GROUPS - 1 - edges1.length]);
-    memo = sortOblp(corners1 + edges1) + ' ' + sortOblp(corners2 + edges2);
+    const func     = (corners1.length + edges1.length) < 4 ?
+                      (m) => "12345678".replace(new RegExp(`[${m}]`, 'g'), '') :
+                      (m) => m;
+    memo     = sortOblp(corners1 + edges1) + ' ' + func(sortOblp(corners2 + edges2));
+    inverted = Math.random() < 0.5;
   }
 
-  document.getElementById('memoText').textContent = memo;
+  document.getElementById('memoText').textContent  = memo;
+  document.getElementById('invertTag').textContent = inverted ? '(invert)' : '';
   startTime = performance.now();
 }
 
@@ -103,24 +188,28 @@ function reveal() {
     answer = '(unknown)';
   }
 
+  try {
+    document.getElementById('vizArea').innerHTML = drawOblViz(memo, inverted);
+  } catch(e) {
+    console.warn('OBL viz error:', e);
+  }
+
   document.getElementById('answerText').textContent = answer;
-  document.getElementById('timeText').textContent = `${elapsed}s`;
-  document.getElementById('memoTag').textContent = 'Click for next';
+  document.getElementById('timeText').textContent   = `${elapsed}s`;
+  document.getElementById('memoTag').textContent    = 'Click for next';
   document.getElementById('flashcard').classList.add('revealed');
 
-  // Update stats
   document.getElementById('seenCount').textContent = times.length;
-  const avg = times.reduce((a,b)=>a+b,0)/times.length;
-  document.getElementById('avgTime').textContent = avg.toFixed(3) + 's';
+  const avg = times.reduce((a, b) => a + b, 0) / times.length;
+  document.getElementById('avgTime').textContent   = avg.toFixed(3) + 's';
 }
 
+// ── Event wiring ──────────────────────────────────────────────────────────────
+
 document.getElementById('flashcard').addEventListener('click', () => {
-  if (state === 'question') reveal();
-  else nextCard();
+  if (state === 'question') reveal(); else nextCard();
 });
-
-document.getElementById('skipBtn').addEventListener('click', () => { nextCard(); });
-
+document.getElementById('skipBtn').addEventListener('click', nextCard);
 document.getElementById('modeTwo').addEventListener('click', () => {
   oneface = false;
   document.getElementById('modeTwo').classList.add('active');
@@ -133,10 +222,8 @@ document.getElementById('modeOne').addEventListener('click', () => {
   document.getElementById('modeTwo').classList.remove('active');
   nextCard();
 });
-
-// Keyboard: space to flip, arrow to skip
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); if(state==='question') reveal(); else nextCard(); }
+  if (e.code === 'Space')      { e.preventDefault(); if (state === 'question') reveal(); else nextCard(); }
   if (e.code === 'ArrowRight') nextCard();
 });
 
