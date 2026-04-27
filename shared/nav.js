@@ -2,17 +2,17 @@
 // Usage: import './nav.js' and call buildNav(activePath)
 
 export const TOOLS = [
-  { path: 'average', label: 'Avg Gen',      longLabel: 'Average Generator',          color: '#ff85a1' },
-  { path: 'stats',   label: 'Avg Stats',    longLabel: 'Average Statistics',          color: '#009b48' },
-  { path: 'aox',     label: 'AoX List',     longLabel: 'Average of X List',           color: '#0046ad' },
-  { path: 'subx',    label: 'Sub-X Count',  longLabel: 'Sub-X Count',                 color: '#9855d4' },
-  { path: 'mean',    label: 'Mean Gen',     longLabel: 'Mean of 3 Generator',         color: '#ff5800' },
-  { path: 'add',     label: 'Time Add',     longLabel: 'Time Adder',                  color: '#c41e3a' },
-  { path: 'filter',  label: 'Alg Filter',   longLabel: 'Algorithm Filter',            color: '#00a6d6' },
-  { path: 'mega',    label: 'Mega Scram',   longLabel: 'Megaminx Scramble Converter', color: '#ff6b6b' },
-  { path: 'squan',   label: 'Squan Norm',   longLabel: 'Square-1 Normalizer',         color: '#ffa500' },
-  { path: 'oblp',    label: 'OBLP',         longLabel: 'OBLP Trainer',                color: '#a0e080' },
-  { path: 'notation',label: 'Notation',     longLabel: 'Notation Converter',          color: '#e0a0ff' },
+  { path: 'average', label: 'Avg Gen',      longLabel: 'Average Generator',           color: '#ff85a1' },
+  { path: 'stats',   label: 'Avg Stats',    longLabel: 'Average Statistics',          color: '#35d37f' },
+  { path: 'subx',    label: 'Sub-X Count',  longLabel: 'Sub-X Count',                 color: '#b96aff' },
+  { path: 'notation',label: 'VC type',      longLabel: 'Virtual Cube Typing',         color: '#e0a0ff' },
+  { path: 'oblp',    label: 'OBLP',         longLabel: 'OBLP Trainer',                color: '#b4fd8f' },
+  { path: 'squan',   label: 'Squan Help',   longLabel: 'Squan Alg Helper',            color: '#ffc964' },
+  { path: 'mean',    label: 'Mean Gen',     longLabel: 'Mean Generator',              color: '#fd8645' },
+  { path: 'add',     label: 'Time Add',     longLabel: 'Add Times',                   color: '#ff516e' },
+  { path: 'filter',  label: 'CE Filter',    longLabel: 'Cube Explorer Filter',        color: '#55cff1' },
+  { path: 'aox',     label: 'AoX List',     longLabel: 'Average of X List',           color: '#4f95ff' },
+  { path: 'mega',    label: 'Carrot',       longLabel: 'Carrot Converter',            color: '#ff7272' },
 ];
 
 const CAT_SVG = `<svg viewbox="0 0 576 576" xmlns="http://www.w3.org/2000/svg" style="height:22px;width:22px;display:block">
