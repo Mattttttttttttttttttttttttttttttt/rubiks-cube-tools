@@ -184,9 +184,10 @@ function drawLayer(tokens, isBottom, cx, cy, size) {
  * @param {number} size       Logical size passed in (scaled internally by 220/400)
  * @param {number} ringDistance  Gap between the two face SVGs (pixels at scale)
  * @param {boolean} showSlice   Whether to draw the slice indicator arrows
+ * @param {boolean} topOnly     Whether to only generate one layer
  * @returns {string}          HTML string: a flex div containing two <svg> elements
  */
-export function getSVG(rawHex, size = 400, ringDistance = 5, showSlice = true) {
+export function getSVG(rawHex, size = 400, ringDistance = 5, showSlice = true, topOnly = false) {
     const hex = rawHex.replace(/[|/]/, '');
     if (hex.length !== 24) throw new Error('Hex must be 24 data characters.');
 
@@ -209,10 +210,13 @@ export function getSVG(rawHex, size = 400, ringDistance = 5, showSlice = true) {
     html += drawLayer(parsed.top, false, cx, cy, size);
     html += `</svg>`;
 
-    html += `<svg style="overflow:visible;margin-left:1rem;" ${svgAttrs}>`;
-    if (showSlice) html += drawSlice('bottom', cx, cy, size);
-    html += drawLayer(parsed.bottom, true, cx, cy, size);
-    html += `</svg></div>`;
+    if (!topOnly) {
+        html += `<svg style="overflow:visible;margin-left:1rem;" ${svgAttrs}>`;
+        if (showSlice) html += drawSlice('bottom', cx, cy, size);
+        html += drawLayer(parsed.bottom, true, cx, cy, size);
+        html += `</svg>`;
+    }
+    html += `</div>`;
 
     return html;
 }

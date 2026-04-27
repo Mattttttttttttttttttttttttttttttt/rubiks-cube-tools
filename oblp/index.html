@@ -10,7 +10,7 @@
     .card:active{transform:scale(0.99)}
     .card:hover{border-color:var(--border-2)}
     .card-memo{font-family:var(--font-mono);font-size:2.6rem;font-weight:600;letter-spacing:.06em;color:var(--text);line-height:1}
-    .card-invert{font-family:var(--font-mono);font-size:0.78rem;color:#808080;margin-top:5px;min-height:1.15em;letter-spacing:0.05em}
+    .card-invert{font-family:var(--font-mono);font-size:0.78rem;color:var(--accent);margin-top:5px;min-height:1.15em;letter-spacing:0.05em}
     .card-tag{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);margin-top:8px}
     .card-viz{display:flex;justify-content:center;align-items:center;margin-top:14px;margin-bottom:2px;min-height:0;overflow:visible}
     .card-viz .squan{overflow:visible}
@@ -23,6 +23,13 @@
     .stats-bar{display:flex;gap:20px;font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono)}
     .stats-bar span em{color:var(--text);font-style:normal}
     .revealed .card{border-color:var(--accent)}
+    .layer-mode-switch{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:visible}
+    .layer-mode-btn{font-family:var(--font-ui);font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:6px 14px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:all 0.12s;position:relative}
+    .layer-mode-btn:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+    .layer-mode-btn:last-child{border-radius:0 var(--radius) var(--radius) 0}
+    .layer-mode-btn.active{background:var(--accent);color:#000}
+    .layer-mode-btn::after{content:attr(data-tip);position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);background:rgba(20,20,30,0.92);color:#e0e0e0;font-size:0.65rem;font-family:var(--font-mono);padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.12s;z-index:200;letter-spacing:0.04em}
+    .layer-mode-btn:hover::after{opacity:1}
   </style>
 </head>
 <body>
@@ -31,10 +38,14 @@
   <div class="fc-wrap">
     <div class="controls">
       <div class="mode-switch">
-        <button class="mode-btn active" id="modeTwo">Two-face</button>
-        <button class="mode-btn" id="modeOne">One-face</button>
+        <button class="mode-btn active" id="modeTwo">Two layer</button>
+        <button class="mode-btn" id="modeOne">One layer</button>
       </div>
-      <button class="btn btn-ghost btn-sm" id="skipBtn">Skip →</button>
+      <div class="layer-mode-switch" id="layerModeSwitch" style="display:none">
+        <button class="layer-mode-btn active" id="lmRandom" data-tip="Pick any layer shape">Random</button>
+        <button class="layer-mode-btn" id="lmBig" data-tip="Prefer bigger layers">Big</button>
+        <button class="layer-mode-btn" id="lmSmall" data-tip="Prefer smaller layers">Small</button>
+      </div>
       <div class="stats-bar">
         <span>Seen: <em id="seenCount">0</em></span>
         <span>Avg: <em id="avgTime">—</em></span>
@@ -97,7 +108,7 @@ const BOT_IDS = { '1':'d top','2':'a inner','3':'b top','4':'8 inner',
 
 const SOLVED_HEX = '011233455677998bbaddcffe';
 
-function drawOblViz(memoStr, inverted) {
+function drawOblViz(memoStr, inverted, topOnly = false) {
   const parts = memoStr.trim().split(/\s+/);
 
   // non-inverted: parts[0]=bottom face (right SVG), parts[1]=top face (left SVG)
@@ -112,7 +123,9 @@ function drawOblViz(memoStr, inverted) {
   resetPiecesColors();
 
   let OBLcolortop, OBLcolorbottom;
-  if (inverted) {
+  if (oneface) {
+    OBLcolortop = "top";
+  } else if (inverted) {
     OBLcolortop = "top";
     // inversion happens on the other layer
     OBLcolorbottom = topMemo.length < 4 ? "bottom" : "top";
@@ -125,10 +138,12 @@ function drawOblViz(memoStr, inverted) {
   for (const digit of "12345678") if (TOP_IDS[digit]) setPieceColor(TOP_IDS[digit], theOtherColor[OBLcolortop]);
   for (const digit of topMemo) if (TOP_IDS[digit]) setPieceColor(TOP_IDS[digit], OBLcolortop);
 
-  for (const digit of "12345678") if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], theOtherColor[OBLcolorbottom]);
-  for (const digit of botMemo) if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], OBLcolorbottom);
+  if (!oneface) {
+    for (const digit of "12345678") if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], theOtherColor[OBLcolorbottom]);
+    for (const digit of botMemo) if (BOT_IDS[digit]) setPieceColor(BOT_IDS[digit], OBLcolorbottom);
+  }
 
-  return getSVG(SOLVED_HEX, 220, 6, true);
+  return getSVG(SOLVED_HEX, 220, 6, !topOnly, topOnly);
 }
 
 // ── Trainer state ─────────────────────────────────────────────────────────────
@@ -139,6 +154,8 @@ let startTime = 0;
 let memo     = '';
 let inverted = false;
 let times    = [];
+let layerMode = 'random'; // 'random' | 'big' | 'small'
+const complement = (m) => '12345678'.replace(new RegExp(`[${m}]`, 'g'), '');
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -156,7 +173,11 @@ function nextCard() {
     const corner = rand(TOTAL_CORNERS);
     const edge   = rand(TOTAL_EDGES);
     if (!corner && !edge) { nextCard(); return; }
-    memo = sortOblp(corner + edge);
+    let layer = sortOblp(corner + edge);
+    if (layerMode === 'small' && layer.length > 4) layer = complement(layer);
+    if (layerMode === 'big'   && layer.length < 4) layer = complement(layer);
+    if (!layer) { nextCard(); return; }
+    memo = layer;
   } else {
     const GROUPS   = CORNERS.length;
     const corners1 = rand(TOTAL_CORNERS);
@@ -189,7 +210,7 @@ function reveal() {
   }
 
   try {
-    document.getElementById('vizArea').innerHTML = drawOblViz(memo, inverted);
+    document.getElementById('vizArea').innerHTML = drawOblViz(memo, inverted, oneface);
   } catch(e) {
     console.warn('OBL viz error:', e);
   }
@@ -209,17 +230,29 @@ function reveal() {
 document.getElementById('flashcard').addEventListener('click', () => {
   if (state === 'question') reveal(); else nextCard();
 });
-document.getElementById('skipBtn').addEventListener('click', nextCard);
+function updateLayerModeVisibility() {
+  document.getElementById('layerModeSwitch').style.display = oneface ? '' : 'none';
+}
+['lmRandom', 'lmBig', 'lmSmall'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    layerMode = id === 'lmRandom' ? 'random' : id === 'lmBig' ? 'big' : 'small';
+    document.querySelectorAll('.layer-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    nextCard();
+  });
+});
 document.getElementById('modeTwo').addEventListener('click', () => {
   oneface = false;
   document.getElementById('modeTwo').classList.add('active');
   document.getElementById('modeOne').classList.remove('active');
+  updateLayerModeVisibility();
   nextCard();
 });
 document.getElementById('modeOne').addEventListener('click', () => {
   oneface = true;
   document.getElementById('modeOne').classList.add('active');
   document.getElementById('modeTwo').classList.remove('active');
+  updateLayerModeVisibility();
   nextCard();
 });
 document.addEventListener('keydown', e => {
