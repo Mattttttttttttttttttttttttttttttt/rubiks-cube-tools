@@ -57,7 +57,7 @@
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title"><span class="dot"></span>Avg Stats</div>
-        <div class="panel-sub">Paste a cstimer average to see statistics</div>
+        <div class="panel-sub">Paste an average to see stats</div>
       </div>
 
       <button class="btn btn-ghost" id="resetBtn">↺ Reset <kbd>Shift+Esc</kbd></button>
@@ -65,7 +65,7 @@
       <div class="input-group">
         <label class="label" for="pasteArea">input</label>
         <textarea id="pasteArea" placeholder="your FULL cstimer average, or a comma-separated list of solves"></textarea>
-        <div id="formatBadge" class="format-badge" style="display:none">Invalid format — paste a cstimer average or comma-separated times</div>
+        <div id="formatBadge" class="format-badge" style="display:none">Invalid input — paste a cstimer average or comma-separated times of AT LEAST 3 solves.</div>
       </div>
 
       <div id="configZone" style="opacity:.35;pointer-events:none">
@@ -160,7 +160,7 @@
       </div>
       <button class="btn btn-ghost" id="btnCopy" style="display:none">Copy results</button>
       <div id="outputCols">
-        <p class="output-empty" id="placeholderOut">Paste a valid cstimer average on the left to see stats.</p>
+        <p class="output-empty" id="placeholderOut">Stats will appear here.</p>
       </div>
     </div>
 

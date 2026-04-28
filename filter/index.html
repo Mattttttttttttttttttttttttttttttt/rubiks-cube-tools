@@ -27,7 +27,6 @@
     .filter-preview:focus{outline:none;border-color:var(--accent)}
     .filter-preview.has-errors{border-color:#c41e3a66}
     .fp-preview-expr{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;pointer-events:none;font-style:italic}
-    /* BUG 2 FIX: placeholder uses var(--text-muted), not var(--border-2) */
     .fp-preview-ph{color:var(--text-muted);font-style:italic;pointer-events:none}
 
     /* ── Token type colours ── */
@@ -45,12 +44,10 @@
     .fp-popup{background:var(--surface);border:1px solid var(--border-2);border-radius:8px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,0.6);transform:translateY(-10px) scale(0.98);transition:transform 0.22s cubic-bezier(0.22,1,0.36,1);overflow:hidden}
     .fp-overlay.open .fp-popup{transform:translateY(0) scale(1)}
     .fp-popup-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)}
-    /* BUG 8 FIX: increase popup title font size */
     .fp-popup-title{font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text)}
 
     /* Name + expression stacked */
     .fp-input-section{padding:10px 14px 8px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
-    /* BUG 8 FIX: slightly larger label text in popup */
     .fp-input-section .label{display:block;margin-bottom:3px;font-size:0.7rem}
     .fp-name-input{width:100%;font-size:0.82rem;font-family:var(--font-ui)}
     .fp-expr-input{width:100%;min-height:40px;font-size:0.82rem;resize:none;field-sizing:content}
@@ -58,7 +55,6 @@
     /* Tokens + mini-legend grid */
     .fp-main-grid{display:grid;grid-template-columns:1fr 148px}
     .fp-display-section{padding:8px 14px 10px}
-    /* BUG 2 FIX: use var(--text-dim) instead of var(--border-2) */
     .fp-display-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:6px}
 
     /* ── Token box display: flex wrap so boxes are tight ── */
@@ -78,7 +74,6 @@
       white-space:nowrap;font-size:0.82rem;line-height:1.3;
     }
     .ft-box:hover,.ft-box.ft-active{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.2)}
-    /* BUG 1 FIX: Newline/AND separator rendered as & symbol with spacing */
     .ft-nl{display:inline-flex;align-items:center;padding:0 7px;color:var(--text-muted);font-weight:700;font-size:0.72rem;letter-spacing:0.04em}
     /* Space gap */
     .ft-gap{display:inline-block;width:6px}
@@ -102,18 +97,15 @@
 
     /* Mini-legend */
     .fp-mini-legend{border-left:1px solid var(--border);padding:8px 10px 6px;display:flex;flex-direction:column;gap:4px}
-    /* BUG 8 FIX: slightly larger mini-legend text */
     .fp-ml-row{display:flex;align-items:center;gap:1px;font-size:0.64rem;color:var(--text-muted);line-height:1}
     .fp-ml-sym{font-family:var(--font-mono);font-size:0.74rem;font-weight:600}
     .fp-ml-text{margin-left:5px;white-space:nowrap}
     .fp-ml-divider{height:1px;background:var(--border);margin:2px 0}
-    /* BUG 2 FIX: use var(--text-dim) instead of var(--border-2) */
     .fp-ml-note{font-size:0.6rem;color:var(--text-dim);line-height:1.45}
 
     /* Token info bar */
     .fp-token-info{padding:6px 14px;font-family:var(--font-mono);font-size:0.71rem;color:var(--text-dim);min-height:30px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
     .fp-ti-type{font-weight:600;font-size:0.62rem;letter-spacing:0.06em;text-transform:uppercase;flex-shrink:0;padding:2px 5px;border-radius:2px;background:rgba(255,255,255,0.06);line-height:1.4}
-    /* BUG 2 FIX: use var(--text-dim) instead of var(--border-2) */
     .fp-ti-sep{color:var(--text-dim);flex-shrink:0}
     .fp-ti-desc{color:var(--text-muted)}
     .fp-ti-placeholder{color:var(--text-muted);font-style:italic}
@@ -146,12 +138,11 @@
     </div>
     <div class="fp-input-section">
       <div>
-        <!-- BUG 2 FIX: (optional) label uses var(--text-muted) not var(--border-2) -->
-        <label class="label" for="fpName">name <span style="color:var(--text-muted);font-size:0.58rem;letter-spacing:0;text-transform:none;font-weight:400">(optional)</span></label>
+        <label class="label" for="fpName">name <span style="color:var(--text-muted);font-size:0.65rem;text-transform:none;font-weight:400">(optional)</span></label>
         <input type="text" id="fpName" class="fp-name-input" placeholder="e.g. no S moves" autocomplete="off" spellcheck="false">
       </div>
       <div>
-        <label class="label" for="fpEditor">expression <span style="color:var(--text-muted);font-size:0.58rem;letter-spacing:0;text-transform:none;font-weight:400">(newline = &amp; AND)</span></label>
+        <label class="label" for="fpEditor">expression <span style="color:var(--text-muted);font-size:0.65rem;text-transform:none;font-weight:400">(newline = &amp; AND)</span></label>
         <textarea id="fpEditor" class="fp-expr-input" spellcheck="false" autocomplete="off" placeholder="U | R&#10;(F*/M*)&#10;.S*"></textarea>
       </div>
     </div>
@@ -249,11 +240,9 @@ const filtersEl = document.getElementById('filters');
 // filters[i] = { filterStr, name, removed, hasErrors }
 const filters = [];
 
-// BUG 3 FIX: undo stack for deleted filters
 const undoStack = [];
 
 // ── TOKEN_INFO ─────────────────────────────────────────────────────────────────
-// BUG 6 FIX: removed FACE_NAMES — moves are just referred to by their letter
 const TOKEN_INFO = {
   move:      { label:'move',         desc: t => {
     const wide = t.text.includes('w');
@@ -363,7 +352,6 @@ function renderGroups(toks, groups, displayGid, parenHL) {
   let i=0;
   while (i<toks.length) {
     const t=toks[i];
-    // BUG 1 FIX: newline renders as "&" AND-separator symbol
     if (t.type==='newline') { parts.push('<span class="ft-nl">&amp;</span>'); i++; continue; }
     if (t.type==='space')   { parts.push('<span class="ft-gap"></span>'); i++; continue; }
 
@@ -398,7 +386,6 @@ function getActiveGidFromCursor(toks, groups, cursorPos) {
 }
 
 // ── Group description ──────────────────────────────────────────────────────────
-// BUG 6 FIX: simplified — no FACE_NAMES, just use move letter directly
 function describeGroup(segToks) {
   const move=segToks.find(t=>t.type==='move');
   const hasS=segToks.some(t=>t.type==='anchor-s');
@@ -505,7 +492,6 @@ function nodeToRegexes(node) {
   return [];
 }
 
-// BUG 1 FIX: split filterStr by newlines and apply AND logic
 // An alg is removed only if it matches ALL newline-separated clauses.
 function applyFiltersAST(algs, filterStr) {
   const lines=filterStr.split(/[\n&]/).map(l=>l.trim()).filter(Boolean);
@@ -686,8 +672,7 @@ function openPopup(idx) {
     if (errs.length) showErrorBadge(errs[0]);
   }
   fpOverlay.classList.add('open');
-  // BUG 7 FIX: always focus the expression field, not the name field
-  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
     fpEditor.focus();
     refreshDisplay(fpEditor.selectionStart??0);
   });
@@ -822,8 +807,7 @@ document.addEventListener('keydown', e=>{
     if (!hasInputSel&&!hasTextSel) { e.preventDefault(); triggerCopy(); }
     return;
   }
-  // BUG 3 FIX: Ctrl+Z to undo last filter deletion (only when no input is focused)
-  if (e.ctrlKey&&e.key==='z') {
+    if (e.ctrlKey&&e.key==='z') {
     const active=document.activeElement;
     const isInput=active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA');
     if (!isInput&&undoStack.length) {
@@ -847,7 +831,6 @@ function loadAlgs() {
   reapplyAll();
 }
 
-// BUG 3 FIX: deleteFilter removes the filter with optional undo
 function deleteFilter(idx) {
   const f=filters[idx];
   const hasContent=(f.filterStr??'').trim()||(f.name??'').trim();
@@ -898,13 +881,11 @@ function addFilter(focusNew=true, preset=null) {
   preview.addEventListener('keydown', e=>{
     if (e.key===' ') { e.preventDefault(); openPopup(idx); }
   });
-  // BUG 3 FIX: X button now deletes the filter (not just clears it)
-  div.querySelector('[data-del]').addEventListener('click', ()=>deleteFilter(idx));
+    div.querySelector('[data-del]').addEventListener('click', ()=>deleteFilter(idx));
 
   if (focusNew) requestAnimationFrame(()=>openPopup(idx));
 }
 
-// BUG 5 FIX: updatePreview always shows expression in preview field;
 // label always shows name (or "Filter N")
 function updatePreview(idx) {
   const el=document.getElementById(`fprev${idx}`);

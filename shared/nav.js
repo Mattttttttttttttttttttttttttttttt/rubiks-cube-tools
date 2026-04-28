@@ -5,13 +5,13 @@ export const TOOLS = [
   { path: 'average', label: 'Avg Gen',      longLabel: 'Average Generator',           color: '#ff85a1' },
   { path: 'stats',   label: 'Avg Stats',    longLabel: 'Average Statistics',          color: '#35d37f' },
   { path: 'subx',    label: 'Sub-X Count',  longLabel: 'Sub-X Count',                 color: '#b96aff' },
-  { path: 'notation',label: 'VC type',      longLabel: 'Virtual Cube Typing',         color: '#e0a0ff' },
+  { path: 'notation',label: 'V.C. type',    longLabel: 'Virtual Cube Typing',         color: '#e0a0ff' },
   { path: 'oblp',    label: 'OBLP',         longLabel: 'OBLP Trainer',                color: '#b4fd8f' },
   { path: 'squan',   label: 'Squan Help',   longLabel: 'Squan Alg Helper',            color: '#ffc964' },
   { path: 'mean',    label: 'Mean Gen',     longLabel: 'Mean Generator',              color: '#fd8645' },
   { path: 'add',     label: 'Time Add',     longLabel: 'Add Times',                   color: '#ff516e' },
-  { path: 'filter',  label: 'CE Filter',    longLabel: 'Cube Explorer Filter',        color: '#55cff1' },
-  { path: 'aox',     label: 'AoX List',     longLabel: 'Average of X List',           color: '#4f95ff' },
+  { path: 'filter',  label: 'C.E. Filter',  longLabel: 'Cube Explorer Filter',        color: '#55cff1' },
+  { path: 'aox',     label: 'Ao-X List',    longLabel: 'Average of X List',           color: '#4f95ff' },
   { path: 'mega',    label: 'Carrot',       longLabel: 'Carrot Converter',            color: '#ff7272' },
 ];
 
