@@ -19,7 +19,7 @@
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
     .solve-error {
       font-family: var(--font-mono); font-size: 0.65rem;
-      color: #d86074; padding-left: 34px;
+      color: #d86074; margin-top: 5px;
       display: none; align-items: center; gap: 5px;
     }
     .solve-error::before {
@@ -414,8 +414,9 @@ function createEntryEl(idx) {
 
   const errLine = document.createElement('div');
   errLine.className = 'solve-error';
+  fieldWrap.appendChild(errLine);
 
-  entry.append(row, errLine);
+  entry.append(row);
   return entry;
 }
 
