@@ -123,7 +123,7 @@
         <div class="panel-title"><span class="dot"></span>Notation</div>
         <div class="panel-sub">generate 3x3 notation from virtual cube typing</div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn">Copy results</button>
+      <button class="btn btn-ghost" id="copyBtn"style="justify-content:center">Copy results <kbd>Ctrl+C</kbd></button>
       <textarea id="ubox"
         spellcheck="false"
         autocomplete="off"
@@ -343,10 +343,11 @@ function fullUpdate() {
 const copyBtn = document.getElementById('copyBtn');
 let flashTimeout;
 function flashCopy() {
+  const old = copyBtn.innerHTML;
   copyBtn.textContent = 'Copied!';
   copyBtn.classList.add('flash');
   clearTimeout(flashTimeout);
-  flashTimeout = setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('flash'); }, 1500);
+  flashTimeout = setTimeout(() => { copyBtn.innerHTML = old; copyBtn.classList.remove('flash'); }, 1500);
 }
 copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(ubox.value); flashCopy(); });
 

@@ -33,7 +33,7 @@
         <div class="panel-title"><span class="dot" style="background:#555"></span>WCA notation</div>
         <div class="panel-sub">your formatted scramble</div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn">Copy results</button>
+      <button class="btn btn-ghost" id="copyBtn">Copy results <kbd>Ctrl+Enter</kbd></button>
       <textarea class="mega-textarea" id="wcaOut" readonly placeholder="WCA notation will appear here&hellip;" spellcheck="false"></textarea>
     </div>
   </div>
@@ -67,11 +67,12 @@ const copyBtn = document.getElementById('copyBtn');
 
 copyBtn.addEventListener('click', function() {
   navigator.clipboard.writeText(document.getElementById('wcaOut').value);
-  var old = this.textContent; this.textContent = 'Copied!';
+  const old = this.innerHTML;
+  this.textContent = 'Copied!';
   this.classList.add('flash');
   setTimeout(function() {
-    document.getElementById('copyBtn').textContent = old;
-    document.getElementById('copyBtn').classList.remove('flash');
+    copyBtn.innerHTML = old;
+    copyBtn.classList.remove('flash');
   }, 1500);
 });
 

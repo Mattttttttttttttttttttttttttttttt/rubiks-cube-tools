@@ -72,7 +72,7 @@
         <div class="panel-sub">your rolling averages</div>
         <div id="countLabel" class="panel-sub"></div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result <kbd>Ctrl+C</kbd></button>
       <div id="summary" style="display:none"></div>
       <div class="scrollable" id="listOut">
         <div class="output-empty">Results will appear here.</div>
@@ -158,12 +158,12 @@ const COPY_FLASH_COLOR = '#4a9e6b';
 function triggerCopy() {
   if (copyBtn.style.display === 'none') return;
   navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
-  const old = copyBtn.textContent;
+  const old = copyBtn.innerHTML;
   copyBtn.textContent = 'Copied!';
   copyBtn.style.color = COPY_FLASH_COLOR;
   copyBtn.style.borderColor = COPY_FLASH_COLOR;
   setTimeout(() => {
-    copyBtn.textContent = old;
+    copyBtn.innerHTML = old;
     copyBtn.style.color = '';
     copyBtn.style.borderColor = '';
   }, 1500);

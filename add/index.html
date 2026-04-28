@@ -57,7 +57,7 @@
       font-family: var(--font-mono); font-size: 0.8rem;
       color: var(--text-dim); line-height: 2; word-break: break-all;
     }
-    #copyBtn { margin-top: 14px; }
+    #copyBtn { margin-bottom: 10px; }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
   </style>
 </head>
@@ -84,7 +84,7 @@
         <div class="panel-title"><span class="dot" style="background:#555"></span>Output</div>
         <div class="panel-sub">your sum of times</div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none;justify-content:center;">Copy result <kbd>Ctrl+C</kbd></button>
       <div class="output-box" id="outputBox">
         <div id="emptyMsg" class="output-empty">Add more solves...</div>
         <div id="sumDisplay" style="display:none">
@@ -532,12 +532,12 @@ const COPY_FLASH_COLOR = '#4a9e6b';
 function triggerCopy() {
   if (copyBtn.style.display === 'none') return;
   navigator.clipboard.writeText(copyBtn.dataset.result ?? '');
-  const old = copyBtn.textContent;
+  const old = copyBtn.innerHTML;
   copyBtn.textContent = 'Copied!';
   copyBtn.style.color = COPY_FLASH_COLOR;
   copyBtn.style.borderColor = COPY_FLASH_COLOR;
   setTimeout(() => {
-    copyBtn.textContent = old;
+    copyBtn.innerHTML = old;
     copyBtn.style.color = '';
     copyBtn.style.borderColor = '';
   }, 1500);
