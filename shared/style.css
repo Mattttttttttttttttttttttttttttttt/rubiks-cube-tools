@@ -1342,3 +1342,19 @@ select {
     background-size: contain;
     background-position: center;
 }
+
+/* ── FOOTER ── */
+footer {
+    border-top: 1px solid var(--border);
+    padding: 18px var(--side-pad);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+footer .footer-sep {
+    color: var(--border-2);
+}
