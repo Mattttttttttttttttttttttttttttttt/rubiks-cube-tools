@@ -1144,6 +1144,7 @@ select {
     position: relative;
     display: inline-flex;
     align-items: center;
+    vertical-align: middle;
 }
 
 .tooltip-q {

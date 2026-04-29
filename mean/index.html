@@ -10,9 +10,22 @@
       display: flex;
       flex-direction: column;
       gap: 7px;
-      flex: none;
-      max-height: calc(100vh - var(--nav-h) - 170px);
+      flex: 1;
+      min-height: 0;
       overflow-y: auto;
+    }
+
+    .split > .panel:first-child {
+      overflow-y: hidden;
+    }
+
+    .split > .panel:first-child .mt-16 {
+      flex-shrink: 0;
+      padding-top: 8px;
+    }
+
+    .split > .panel:first-child .divider {
+      flex-shrink: 0;
     }
 
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
@@ -125,9 +138,6 @@
       </div>
       <button class="btn btn-ghost" id="copyBtn" style="display:none;justify-content:center;">Copy result <kbd>Ctrl+C</kbd></button>
       <div class="bw-section" id="bpaWpaSection" style="display:none">
-        <div class="bw-row">
-          <span class="bw-label">BPA:</span><span id="bpaVal">—</span>
-        </div>
         <div class="bw-target-row">
           <span><span class="bw-label" style="margin-right:3px;">TARGET</span><span class="tooltip-wrap"><span class="tooltip-q">?</span><span class="tooltip-box">Input your target mean here, and you will see the time you need to aim for on your next solve to get that mean. You will also see approximately how likely you are to meet your target.</span></span></span>
           <input type="text" id="targetInput" placeholder="e.g. 9.50">
@@ -731,12 +741,13 @@ function computeMeanProb(vals, xSecs) {
   return normalCDF((xSecs - mean) / std);
 }
 
+let _currentBpa = '';
+
 function computeMeanBpaWpa(vals, dec) {
   const sum = vals.reduce((a, b) => a + b, 0);
-  const bpa = formatTime(sum / (vals.length + 1), Math.max(dec, 3));
-  document.getElementById('bpaVal').textContent = bpa;
+  _currentBpa = formatTime(sum / (vals.length + 1), Math.max(dec, 3));
   bpaWpaSection.style.display = '';
-  refreshMeanTarget(vals, dec, bpa);
+  refreshMeanTarget(vals, dec, _currentBpa);
 }
 
 function refreshMeanTarget(vals, dec, bpaAvg) {
@@ -781,7 +792,7 @@ function refreshMeanTarget(vals, dec, bpaAvg) {
 targetInput.addEventListener('input', () => {
   targetInput.value = targetInput.value.replace(/[^0-9.:]/g, '');
   if (_currentVals.length >= 1)
-    refreshMeanTarget(_currentVals, _currentDec, document.getElementById('bpaVal').textContent);
+    refreshMeanTarget(_currentVals, _currentDec, _currentBpa);
 });
 
 // ── Copy ──────────────────────────────────────────────────────────────────────

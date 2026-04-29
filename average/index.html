@@ -11,9 +11,22 @@
       display: flex;
       flex-direction: column;
       gap: 7px;
-      flex: none;
-      max-height: calc(100vh - var(--nav-h) - 170px);
+      flex: 1;
+      min-height: 0;
       overflow-y: auto;
+    }
+
+    .split > .panel:first-child {
+      overflow-y: hidden;
+    }
+
+    .split > .panel:first-child .mt-16 {
+      flex-shrink: 0;
+      padding-top: 8px;
+    }
+
+    .split > .panel:first-child .divider {
+      flex-shrink: 0;
     }
 
     .solve-entry { display: flex; flex-direction: column; gap: 3px; }
