@@ -43,10 +43,7 @@
       </div>
       <div class="input-group">
         <label class="label">Cutoff</label>
-        <div class="row">
-          <input type="text" id="cutoff" placeholder="e.g. 1:00.10" style="width:120px" autofill="off">
-          <button class="btn btn-primary" id="goBtn">Count</button>
-        </div>
+        <input type="text" id="cutoff" placeholder="e.g. 1:00.10" style="width:120px" autofill="off">
         <div id="errMsg" class="format-badge" style="min-height:16px"></div>
       </div>
     </div>
@@ -127,9 +124,10 @@ const formatBadge = document.getElementById('formatBadge');
 
 pasteEl.addEventListener('input', () => {
   const text = pasteEl.value;
-  if (!text.trim()) { formatBadge.style.display = 'none'; return; }
+  if (!text.trim()) { formatBadge.style.display = 'none'; clearResults(); return; }
   const valid = isCstimerFormat(text) || isTimeList(text);
   formatBadge.style.display = valid ? 'none' : '';
+  compute();
 });
 
 // ── AoX badge ────────────────────────────────────────────────────────────────
@@ -139,7 +137,7 @@ const aoxErrBadge = document.getElementById('aoxErrBadge');
 aoxLenEl.addEventListener('input', () => {
   aoxLenEl.value = aoxLenEl.value.replaceAll(/[^0-9]/g, "");
   const v = aoxLenEl.value.trim();
-  if (!v) { aoxErrBadge.style.display = 'none'; return; }
+  if (!v) { aoxErrBadge.style.display = 'none'; compute(); return; }
   const n = parseInt(v);
   if (n === 1) {
     aoxErrBadge.textContent = 'This does nothing — rolling average of 1 is each solve itself';
@@ -150,13 +148,15 @@ aoxLenEl.addEventListener('input', () => {
   } else {
     aoxErrBadge.style.display = 'none';
   }
+  compute();
 });
 
 // ── Compute ───────────────────────────────────────────────────────────────────
-document.getElementById('goBtn').addEventListener('click', compute);
 const cutoffEl = document.getElementById('cutoff');
-cutoffEl.addEventListener('input', () => { cutoffEl.value = cutoffEl.value.replaceAll(/[^0-9.:]/g, ""); });
-document.getElementById('cutoff').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
+cutoffEl.addEventListener('input', () => {
+  cutoffEl.value = cutoffEl.value.replaceAll(/[^0-9.:]/g, "");
+  compute();
+});
 
 // Shift+Esc → reset; Ctrl+Z → undo
 document.addEventListener('keydown', e => {
@@ -175,12 +175,11 @@ function compute() {
   let raw = pasteEl.value.trim();
   const cutRaw = cutoffEl.value.trim();
 
-  if (!raw) { errMsg.textContent = 'Paste some times first.'; return; }
-  if (!cutRaw) { errMsg.textContent = 'Enter a cutoff.'; return; }
+  if (!raw || !cutRaw) { clearResults(); return; }
 
   // Parse cutoff via minutes() so "1:03" works
   const cut = minutes(cutRaw);
-  if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff (e.g. 9.5 or 1:03).'; return; }
+  if (isNaN(cut) || cut <= 0) { errMsg.textContent = 'Enter a valid cutoff (e.g. 9.5 or 1:03).'; clearResults(); return; }
 
   // Strip cstimer header if present
   let {timeList} = parsePaste(raw);
@@ -196,11 +195,13 @@ function compute() {
   if (aoxRaw !== '') {
     const n = parseInt(aoxRaw);
     if (isNaN(n) || n <= 0 || n === 2) {
-      errMsg.textContent = 'Minimum rolling average length is 3.';
+      // error message already exists
+      clearResults();
       return;
     }
     if (n >= timeList.length) {
       errMsg.textContent = `Rolling average length must be less than session length (${timeList.length}).`;
+      clearResults();
       return;
     }
 

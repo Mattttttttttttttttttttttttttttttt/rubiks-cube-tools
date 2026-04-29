@@ -59,10 +59,7 @@
       </div>
       <div class="input-group">
         <label class="label">Sub-average length</label>
-        <div class="row">
-          <input type="number" id="avgLen" min="3" placeholder="e.g. 5" style="width:90px">
-          <button class="btn btn-primary" id="goBtn">Compute</button>
-        </div>
+        <input type="number" id="avgLen" min="3" placeholder="e.g. 5" style="width:90px">
         <div id="errMsg" class="format-badge" style="min-height:16px"></div>
       </div>
     </div>
@@ -72,7 +69,7 @@
         <div class="panel-sub">your rolling averages</div>
         <div id="countLabel" class="panel-sub"></div>
       </div>
-      <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result <kbd>Ctrl+C</kbd></button>
+      <button class="btn btn-ghost" id="copyBtn" style="display:none;justify-content:center;">Copy result <kbd>Ctrl+C</kbd></button>
       <div id="summary" style="display:none"></div>
       <div class="scrollable" id="listOut">
         <div class="output-empty">Results will appear here.</div>
@@ -133,8 +130,7 @@ function triggerUndo() {
 }
 
 resetBtn.addEventListener('click', () => undoMode ? triggerUndo() : triggerReset());
-document.getElementById('avgLen').addEventListener('keydown', e => { if(e.key==='Enter') compute(); });
-document.getElementById('goBtn').addEventListener('click', e => { compute(); });
+document.getElementById('avgLen').addEventListener('input', compute);
 
 // ── Format validation ─────────────────────────────────────────────────────────
 function isValidTime(s) {
@@ -146,9 +142,10 @@ const formatBadge  = document.getElementById('formatBadge');
 
 pasteEl.addEventListener('input', () => {
   const text = pasteEl.value;
-  if (!text.trim()) { formatBadge.style.display = 'none'; return; }
+  if (!text.trim()) { formatBadge.style.display = 'none'; clearResults(); return; }
   const valid = isCstimerFormat(text) || isTimeList(text);
   formatBadge.style.display = valid ? 'none' : '';
+  compute();
 });
 
 // ── Copy ──────────────────────────────────────────────────────────────────────
@@ -210,12 +207,13 @@ function compute() {
   const raw = pasteEl.value;
   const errMsg = document.getElementById('errMsg');
   errMsg.textContent = '';
-  function error() { errMsg.textContent = 'Paste a valid cstimer average.'; return; }
+  function error() { errMsg.textContent = 'Paste a valid cstimer average.'; }
   const n = parseInt(document.getElementById('avgLen').value);
-  if (isNaN(n) || n < 3) { errMsg.textContent = 'Minimum length is 3.'; return; }
+  if (!raw.trim() || isNaN(n)) { clearResults(); return; }
+  if (n < 3) { errMsg.textContent = 'Minimum length is 3.'; clearResults(); return; }
 
   const result = parsePaste(raw);
-  if (!result) error(); // code returns here
+  if (!result) { error(); return; }
   const {decimals, length, r, timeList} = result;
   localStorage.setItem(STORAGE_KEY, timeList.map(t => {
     let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
