@@ -84,6 +84,19 @@
     #copyBtn { margin-bottom: 10px; }
     #resetBtn { margin-bottom: 10px; width: 100%; justify-content: center; }
 
+    .bw-section { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 12px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); }
+    .bw-row { display: flex; align-items: baseline; gap: 6px; }
+    .bw-mid { color: var(--text-muted); padding: 0 4px; }
+    .bw-label { color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+    .bw-dnf { color: var(--accent); }
+    .bw-arrow { color: var(--text-muted); padding: 0 2px; }
+    .bw-target-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    #targetInput { width: 90px; padding: 3px 8px; height: auto; line-height: 1.4; }
+    #targetVal.bw-impossible { color: #d86074; }
+    #targetVal.bw-guaranteed { color: #4a9e6b; }
+    .bw-prob { color: var(--text-muted); }
+    .bw-prob.bw-impossible { color: #d86074; }
+    .bw-prob.bw-guaranteed { color: #4a9e6b; }
     .drop-indicator {
       position: absolute; left: 0; right: 0; height: 2px;
       background: var(--accent); box-shadow: 0 0 8px var(--accent);
@@ -116,6 +129,18 @@
           <div class="panel-sub">your formatted average</div>
         </div>
         <button class="btn btn-ghost" id="copyBtn" style="display:none;justify-content:center;">Copy result <kbd>Ctrl+C</kbd></button>
+        <div class="bw-section" id="bpaWpaSection" style="display:none">
+          <div class="bw-row">
+            <span class="bw-label">BPA:</span><span id="bpaVal">—</span>
+            <span class="bw-mid">·</span>
+            <span class="bw-label">WPA:</span><span id="wpaVal">—</span>
+          </div>
+          <div class="bw-target-row">
+            <span><span class="bw-label" style="margin-right:3px;">TARGET</span><span class="tooltip-wrap"><span class="tooltip-q">?</span><span class="tooltip-box">Input your target average here, and you will see the time you need to aim for on your next solve to get that average. You will also see approximately how likely you are to meet your target.</span></span></span>
+            <input type="text" id="targetInput" placeholder="e.g. 9.50">
+            <span id="targetVal"></span><span id="targetSep" class="bw-prob" style="display:none">, </span><span id="targetProb" class="bw-prob"></span>
+          </div>
+        </div>
         <div class="output-box" id="outputBox">
           <div id="emptyMsg" class="output-empty">Add more solves...</div>
           <div id="avgDisplay" style="display:none">
@@ -139,18 +164,21 @@ let dragState = null;
 let undoMode = false;
 let suppressSave = false;
 let resetPagehideHandler = null;
+let _currentFilled = [];
 const STORAGE_KEY = 'cube-tool-solves';
 const RESET_HTML = '↺ Reset <kbd>Shift+Esc</kbd>';
 const UNDO_HTML  = '↩ Undo <kbd>Ctrl+Z</kbd>';
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const solveList  = document.getElementById('solveList');
-const emptyMsg   = document.getElementById('emptyMsg');
-const avgDisplay = document.getElementById('avgDisplay');
-const avgValue   = document.getElementById('avgValue');
-const avgStrEl   = document.getElementById('avgStr');
-const copyBtn    = document.getElementById('copyBtn');
-const resetBtn   = document.getElementById('resetBtn');
+const solveList     = document.getElementById('solveList');
+const emptyMsg      = document.getElementById('emptyMsg');
+const avgDisplay    = document.getElementById('avgDisplay');
+const avgValue      = document.getElementById('avgValue');
+const avgStrEl      = document.getElementById('avgStr');
+const copyBtn       = document.getElementById('copyBtn');
+const resetBtn      = document.getElementById('resetBtn');
+const bpaWpaSection = document.getElementById('bpaWpaSection');
+const targetInput   = document.getElementById('targetInput');
 
 document.getElementById('addRowBtn').addEventListener('click', () => addRow(true));
 
@@ -626,6 +654,7 @@ function recompute() {
     emptyMsg.textContent = 'One or more solves are invalid.';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
+    bpaWpaSection.style.display = 'none';
     saveToStorage(); return;
   }
 
@@ -633,11 +662,12 @@ function recompute() {
     emptyMsg.style.display = '';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
-    const needed = 3 - filled.length;
+    bpaWpaSection.style.display = 'none';
     emptyMsg.textContent = 'Add more solves...';
     saveToStorage(); return;
   }
 
+  _currentFilled = filled;
   try {
     const result = avgStr(filled.length, filled);
     emptyMsg.style.display = 'none';
@@ -658,15 +688,139 @@ function recompute() {
     avgStrEl.innerHTML = result.avg + ' = ' + parts.join(', ');
     copyBtn.style.display = '';
     copyBtn.dataset.result = result.avg + ' = ' + result.solves.join(', ');
+    computeBpaWpa(filled);
     saveToStorage();
   } catch(err) {
     emptyMsg.style.display = '';
     emptyMsg.textContent = 'Could not compute average.';
     avgDisplay.style.display = 'none';
     copyBtn.style.display = 'none';
+    bpaWpaSection.style.display = 'none';
     saveToStorage();
   }
 }
+
+// ── BPA / WPA / Target ────────────────────────────────────────────────────────
+function normalCDF(z) {
+  if (z < -8) return 0; if (z > 8) return 1;
+  const t = 1 / (1 + 0.3275911 * Math.abs(z));
+  const d = Math.exp(-z * z / 2) * t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+  return z >= 0 ? 1 - d : d;
+}
+
+function computeProb(filled, xSecs) {
+  const vals = filled.map(s => s.includes('DNF') ? null : minutes(s)).filter(v => v !== null);
+  if (vals.length < 2) return null;
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const std  = Math.sqrt(vals.reduce((acc, v) => acc + (v - mean) ** 2, 0) / (vals.length - 1));
+  if (std === 0) return xSecs >= mean ? 1 : 0;
+  return normalCDF((xSecs - mean) / std);
+}
+
+function solveDecimals(filled) {
+  return Math.max(2, ...filled.map(s => {
+    const clean = s.replace(/[^0-9.]/g, '');
+    const dot = clean.lastIndexOf('.');
+    return dot >= 0 ? clean.length - dot - 1 : 0;
+  }));
+}
+
+function binarySearchTarget(filled, T) {
+  const N = filled.length + 1;
+  let lo = 0, hi = 36000;
+  for (let i = 0; i < 64; i++) {
+    const mid    = (lo + hi) / 2;
+    const midStr = seconds(String(parseFloat(mid.toFixed(4))));
+    const res    = avgStr(N, [...filled, midStr]);
+    if ((res.avg === 'DNF' ? Infinity : minutes(res.avg)) <= T) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+function analyticalTarget(filled, T) {
+  const N         = filled.length;
+  const deleteNew = Math.floor((N + 1) / 20) + 1;
+  const deleteCur = Math.floor(N / 20) + 1;
+  if (deleteNew !== deleteCur) return binarySearchTarget(filled, T);
+
+  const sorted = filled.map(s => s.includes('DNF') ? Infinity : minutes(s)).sort((a, b) => a - b);
+  const fastBorder = sorted[deleteNew - 1];
+  const slowBorder = sorted[N - deleteNew];
+  if (fastBorder === Infinity || slowBorder === Infinity) return binarySearchTarget(filled, T);
+
+  let sumMiddle = 0;
+  for (let i = deleteNew; i <= N - 1 - deleteNew; i++) {
+    if (sorted[i] === Infinity) return binarySearchTarget(filled, T);
+    sumMiddle += sorted[i];
+  }
+  const countMiddle = N + 1 - 2 * deleteNew;
+  return T * countMiddle - sumMiddle;
+}
+
+function computeBpaWpa(filled) {
+  const N      = filled.length + 1;
+  const bpaRes = avgStr(N, [...filled, '0.01']);
+  const wpaRes = avgStr(N, [...filled, 'DNF']);
+  document.getElementById('bpaVal').textContent = bpaRes.avg;
+  document.getElementById('bpaVal').className   = bpaRes.avg === 'DNF' ? 'bw-dnf' : '';
+  document.getElementById('wpaVal').textContent = wpaRes.avg;
+  document.getElementById('wpaVal').className   = wpaRes.avg === 'DNF' ? 'bw-dnf' : '';
+  bpaWpaSection.style.display = '';
+  refreshTarget(filled, bpaRes.avg, wpaRes.avg);
+}
+
+function refreshTarget(filled, bpaAvg, wpaAvg) {
+  const valEl  = document.getElementById('targetVal');
+  const probEl = document.getElementById('targetProb');
+  const sepEl  = document.getElementById('targetSep');
+  const raw    = targetInput.value.trim();
+
+  function special(msg, cls) {
+    valEl.textContent = msg; valEl.className = cls;
+    probEl.textContent = ''; probEl.className = 'bw-prob';
+    sepEl.style.display = 'none';
+  }
+
+  if (!raw) { special('', ''); return; }
+  const T = minutes(raw);
+  if (isNaN(T) || T <= 0) { special('invalid', 'bw-impossible'); return; }
+
+  const bpaSecs = bpaAvg === 'DNF' ? Infinity : minutes(bpaAvg);
+  const wpaSecs = wpaAvg === 'DNF' ? Infinity : minutes(wpaAvg);
+
+  if (bpaSecs > T) { special('impossible', 'bw-impossible'); return; }
+  if (wpaSecs <= T) { special('guaranteed', 'bw-guaranteed'); return; }
+
+  const xSecs = analyticalTarget(filled, T);
+  if (xSecs <= 0) { special('impossible', 'bw-impossible'); return; }
+
+  const dec = solveDecimals(filled);
+  const p   = computeProb(filled, xSecs);
+
+  if (p !== null && p < 0.005) { special('nearly impossible', 'bw-impossible'); return; }
+  if (p !== null && p > 0.995) { special('nearly guaranteed', 'bw-guaranteed'); return; }
+
+  valEl.textContent = '→ ' + seconds(String(parseFloat(xSecs.toFixed(dec)))) + ' needed';
+  valEl.className   = '';
+  if (p !== null) {
+    probEl.textContent = 'chance ≈ ' + (p * 100).toFixed(1) + '%';
+    probEl.className = 'bw-prob';
+    sepEl.style.display = '';
+  } else {
+    probEl.textContent = ''; sepEl.style.display = 'none';
+  }
+}
+
+targetInput.addEventListener('input', () => {
+  targetInput.value = targetInput.value.replace(/[^0-9.:]/g, '');
+  if (_currentFilled.length >= 3) {
+    refreshTarget(
+      _currentFilled,
+      document.getElementById('bpaVal').textContent,
+      document.getElementById('wpaVal').textContent
+    );
+  }
+});
 
 // ── Copy ──────────────────────────────────────────────────────────────────────
 const COPY_FLASH_COLOR = '#4a9e6b';
