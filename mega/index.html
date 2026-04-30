@@ -6,12 +6,21 @@
   <link rel="stylesheet" href="../shared/style.css">
   <style>
     .mega-split { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - var(--nav-h)); }
-    .mega-panel { padding: 22px var(--side-pad); display: flex; flex-direction: column; }
+    .mega-panel { padding: 22px var(--side-pad); display: flex; flex-direction: column; overflow-y: auto; }
     .mega-panel + .mega-panel { border-left: 1px solid var(--border); }
-    .mega-textarea { flex: none; min-height: 7lh; field-sizing: content; width: 100%; resize: none; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9; }
+    .mega-textarea { flex: none; min-height: calc(8lh + 44px); field-sizing: content; width: 100%; resize: none; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9; }
     #copyBtn { width: 100%; justify-content: center; margin-bottom: 10px; transition: color .15s, border-color .15s; }
     #copyBtn.flash { color: #4a9e6b !important; border-color: #4a9e6b !important; }
-    #wcaOut { min-height: calc(7lh - 35px); }
+    #wcaOut {
+      font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.9;
+      min-height: 8lh;
+      flex: none;
+      user-select: none;
+    }
+    #wcaOut #wcaText {
+      user-select: text;
+      white-space: pre-wrap; word-break: break-all;
+    }
     .legend { margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 0.72rem; line-height: 1.8; color: var(--text-dim); }
     .legend code { font-family: var(--font-mono); color: var(--accent); }
     @media (max-width: 700px) { .mega-split { grid-template-columns: 1fr; height: auto; } }
@@ -34,7 +43,9 @@
         <div class="panel-sub">your formatted scramble</div>
       </div>
       <button class="btn btn-ghost" id="copyBtn">Copy results <kbd>Ctrl+Enter</kbd></button>
-      <textarea class="mega-textarea" id="wcaOut" readonly placeholder="WCA notation will appear here&hellip;" spellcheck="false"></textarea>
+      <div class="output-box" id="wcaOut">
+        <div class="output-empty">WCA notation will appear here…</div>
+      </div>
     </div>
   </div>
 </div>
@@ -59,14 +70,22 @@ function convert(text) {
   }).join('\n');
 }
 
+const wcaOut = document.getElementById('wcaOut');
+
 document.getElementById('carrotIn').addEventListener('input', function() {
-  document.getElementById('wcaOut').value = convert(this.value);
+  const result = convert(this.value);
+  if (!result.trim()) {
+    wcaOut.innerHTML = '<div class="output-empty">WCA notation will appear here…</div>';
+  } else {
+    wcaOut.innerHTML = `<div id="wcaText"></div>`;
+    wcaOut.querySelector('#wcaText').textContent = result;
+  }
 });
 
 const copyBtn = document.getElementById('copyBtn');
 
 copyBtn.addEventListener('click', function() {
-  navigator.clipboard.writeText(document.getElementById('wcaOut').value);
+  navigator.clipboard.writeText(wcaOut.querySelector('#wcaText')?.textContent ?? '');
   const old = this.innerHTML;
   this.textContent = 'Copied!';
   this.classList.add('flash');
