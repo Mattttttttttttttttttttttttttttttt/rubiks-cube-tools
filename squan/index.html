@@ -1,129 +1,458 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SQ1 Norm — cubetools</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Squan Alg Deriver — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-    .opt-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
-    .opt-label{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);margin-bottom:6px}
-    .alg-out-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-mono);font-size:0.82rem;margin-bottom:7px;word-break:break-all}
-    .comment{font-size:0.72rem;color:#ffa500;margin-top:4px}
-    select{font-size:0.78rem}
+    /* ── Textarea fills the remaining panel space ── */
+    #algInGroup {
+      flex: 1;
+      min-height: 0;
+      /* needed for flex children to shrink */
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #algIn {
+      flex: 1;
+      min-height: 8lh;
+      /* small-screen floor */
+      resize: none;
+    }
+
+    /* ── Config ── */
+    .config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .config-item input[type="text"] {
+      width: 140px;
+    }
+
+    .config-item select {
+      width: auto;
+    }
+
+    /* ── Result rows ── */
+    .alg-row {
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      padding: 6px 2px;
+      border-bottom: 1px solid var(--border);
+      word-break: break-all;
+      display: flex;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+
+    .alg-row:last-child {
+      border-bottom: none;
+    }
+
+    .alg-row.clickable {
+      cursor: pointer;
+    }
+
+    .alg-row.clickable:hover {
+      background: color-mix(in srgb, var(--text) 4%, transparent);
+      border-radius: var(--radius);
+    }
+
+    .alg-text {
+      flex: 1;
+      user-select: text;
+    }
+
+    .alg-text.top-single {
+      color: var(--accent);
+    }
+
+    .alg-text.top-multi {
+      color: var(--text);
+    }
+
+    .alg-text.variant {
+      color: var(--text-muted);
+      font-style: italic;
+      padding-left: 18px;
+    }
+
+    .alg-text.noted {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .alg-text.err {
+      color: #c41e3a;
+    }
+
+    .alg-note {
+      font-size: .7rem;
+      color: var(--text-muted);
+      font-style: italic;
+      flex-shrink: 0;
+      padding-left: 8px;
+      padding-top: 1px;
+      user-select: text;
+    }
+
+    /* chevron — never selectable */
+    .chevron {
+      flex-shrink: 0;
+      width: 24px;
+      line-height: 1.5;
+      font-size: 1rem;
+      color: var(--text-muted);
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ── Copy button ── */
+    #copyBtn {
+      width: 100%;
+      justify-content: center;
+      margin-bottom: 10px;
+      transition: color .15s, border-color .15s;
+    }
+
+    #copyBtn.flash {
+      color: #4a9e6b !important;
+      border-color: #4a9e6b !important;
+    }
+
+    /* ── Derive button spinner ── */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    #goBtn .spinner {
+      display: none;
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+    }
+
+    #goBtn.loading {
+      pointer-events: none;
+      opacity: .75;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    #goBtn.loading .spinner {
+      display: block;
+    }
+
+    #goBtn.loading .btn-label::after {
+      content: ' …';
+    }
   </style>
 </head>
+
 <body>
-<div id="nav"></div>
-<div class="page">
-  <div class="split">
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><span class="dot"></span>SQ1 Normalizer</div>
-        <div class="panel-sub">Paste algs (one per line) — parentheses, commas, slashes, karn all accepted</div>
-      </div>
-      <div class="input-group">
-        <label class="label">Alg(s)</label>
-        <textarea id="algIn" rows="7" placeholder="/3,0/-3,3/3,0/&#10;or&#10;A U' d e U' d e e T' A"></textarea>
+  <div id="nav"></div>
+  <div class="page">
+    <div class="split">
+
+      <!-- ═══ LEFT ═══ -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="dot"></span>Squan Alg Deriver</div>
+          <div class="panel-sub">Paste algs (one per line) — parentheses, commas, slashes, karn all accepted</div>
+        </div>
+
+        <!-- Textarea grows to fill remaining panel height -->
+        <div id="algInGroup" class="input-group">
+          <label class="label" for="algIn">Alg(s)</label>
+          <textarea id="algIn" placeholder="/3,0/-3,3/3,0/&#10;or&#10;A U' d e U' d e e T' A"></textarea>
+          <div id="algBadge" class="format-badge" style="display:none"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Output format -->
+        <div class="input-group">
+          <div class="config-row">
+            <div class="config-item">
+              <label class="label" for="karnSel">Output format</label>
+              <select id="karnSel">
+                <option value="auto">Follow alg format</option>
+                <option value="yes">Always karn</option>
+                <option value="no">Never karn</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="goBtn">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="btn-label">Derive <kbd>Ctrl+Enter</kbd></span>
+        </button>
+        <div id="errMsg" class="format-badge" style="min-height:16px;margin-top:8px"></div>
       </div>
 
-      <div class="opts-grid">
-        <div class="opt-item">
-          <div class="opt-label">Y2 the alg?</div>
-          <label class="toggle">
-            <input type="checkbox" id="lfToggle">
-            <div class="toggle-track"></div><div class="toggle-thumb"></div>
-          </label>
+      <!-- ═══ RIGHT ═══ -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
+          <div class="panel-sub" id="resultSub"></div>
         </div>
-        <div class="opt-item">
-          <div class="opt-label">Y2 after slice(s)</div>
-          <input type="text" id="lfPos" placeholder="1 (or 2,3 etc.)" style="margin-top:4px">
-        </div>
-        <div class="opt-item">
-          <div class="opt-label">Normalization</div>
-          <label class="toggle">
-            <input type="checkbox" id="normToggle" checked>
-            <div class="toggle-track"></div><div class="toggle-thumb"></div>
-          </label>
-        </div>
-        <div class="opt-item">
-          <div class="opt-label">Output in karn?</div>
-          <select id="karnSel">
-            <option value="auto">Follow alg format</option>
-            <option value="yes">Always karn</option>
-            <option value="no">Never karn</option>
-          </select>
+        <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
+        <div id="resultOut">
+          <div class="output-empty">Paste alg(s) and click Derive.</div>
         </div>
       </div>
 
-      <button class="btn btn-primary" id="goBtn">Normalize</button>
-      <div id="errMsg" style="font-size:0.72rem;color:#c41e3a;min-height:16px;margin-top:8px"></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
-        <div class="panel-sub" id="resultSub"></div>
-      </div>
-      <div id="resultOut">
-        <div class="output-empty">Paste alg(s) and click Normalize.</div>
-      </div>
     </div>
   </div>
-</div>
-<script type="module">
-import { buildNav } from '../shared/nav.js';
-import { normalize } from '../shared/sq1lib.js';
-buildNav('sq1');
 
-document.getElementById('goBtn').addEventListener('click', compute);
+  <script type="module">
+    import { buildNav } from '../shared/nav.js';
+    import { normalize, isKarn, rateAlg, countY2Positions } from '../shared/sq1lib.js';
+    buildNav('sq1');
 
-function compute() {
-  const errMsg = document.getElementById('errMsg');
-  errMsg.textContent = '';
-  const raw = document.getElementById('algIn').value.trim();
-  if (!raw) { errMsg.textContent = 'Paste at least one alg.'; return; }
+    // ── State ─────────────────────────────────────────────────────────────────────
+    let flashTimer = null;
+    let lastGroups = null;
 
-  const lines = raw.split('\n').map(l=>l.trim()).filter(l => l && !l.toLowerCase().startsWith('searching'));
-  const doLF = document.getElementById('lfToggle').checked;
-  const lfPosRaw = document.getElementById('lfPos').value.trim();
-  let lfPos = [];
-  if (doLF) {
-    if (!lfPosRaw) lfPos = [1];
-    else {
-      lfPos = lfPosRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-      if (!lfPos.length) lfPos = [1];
+    const goBtn = document.getElementById('goBtn');
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); triggerCompute(); return; }
+      if (e.ctrlKey && e.key === 'c') {
+        const btn = document.getElementById('copyBtn');
+        if (btn.style.display === 'none') return;
+        const active = document.activeElement;
+        const hasInputSel = active &&
+          (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') &&
+          active.selectionStart !== active.selectionEnd;
+        const hasTextSel = (window.getSelection()?.toString().length ?? 0) > 0;
+        if (!hasInputSel && !hasTextSel) { e.preventDefault(); triggerCopy(); }
+      }
+    });
+
+    goBtn.addEventListener('click', triggerCompute);
+    document.getElementById('copyBtn').addEventListener('click', triggerCopy);
+
+    // ── Spinner helpers ───────────────────────────────────────────────────────────
+    function setBusy(on) {
+      goBtn.classList.toggle('loading', on);
+      goBtn.disabled = on;
     }
-  }
-  const normB = !document.getElementById('normToggle').checked; // leave=normB
-  const karnSel = document.getElementById('karnSel').value;
-  const karnB = karnSel === 'yes' ? true : karnSel === 'no' ? false : null;
 
-  const results = [];
-  for (const line of lines) {
-    try {
-      results.push(normalize(line, lfPos, karnB, normB));
-    } catch(e) {
-      results.push(`ERROR: ${e.message}`);
+    // Yield to the browser so the spinner renders before heavy JS runs.
+    function yieldToBrowser() {
+      return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
     }
-  }
 
-  // Deduplicate if multiple algs
-  const unique = lines.length > 1 ? [...new Set(results)] : results;
-  document.getElementById('resultSub').textContent = unique.length === 1 ? '' : `${unique.length} unique result${unique.length>1?'s':''}`;
+    // ── Copy ──────────────────────────────────────────────────────────────────────
+    function triggerCopy() {
+      if (!lastGroups) return;
+      const text = lastGroups.map(g => {
+        const top = g.variants[0]?.alg ?? '';
+        return top.replace(/ \(bad finish\)| \(alignment changes\)/g, '').trim();
+      }).join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const old = btn.textContent;
+        btn.textContent = 'Copied!'; btn.classList.add('flash');
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(() => { btn.textContent = old; btn.classList.remove('flash'); }, 1500);
+      });
+    }
 
-  const out = document.getElementById('resultOut');
-  out.innerHTML = unique.map(r => {
-    const [alg, ...commentParts] = r.split('(bad finish)')[0].split('(alignment changes)')[0].trim() !== r.trim()
-      ? [r.replace(/ \(.*\)$/, ''), ...[...r.matchAll(/\((bad finish|alignment changes)\)/g)].map(m=>m[0])]
-      : [r, null];
-    const hasComment = r.includes('(bad finish)') || r.includes('(alignment changes)');
-    const commentHtml = hasComment
-      ? `<div class="comment">${r.replace(alg.trim(), '').trim()}</div>` : '';
-    const isErr = r.startsWith('ERROR');
-    return `<div class="alg-out-row" style="${isErr?'color:#c41e3a':''}">${isErr?r:alg}${commentHtml}</div>`;
-  }).join('');
-}
-</script>
+    // ── Main entry ────────────────────────────────────────────────────────────────
+    async function triggerCompute() {
+      const errMsg = document.getElementById('errMsg');
+      errMsg.textContent = '';
+
+      const raw = document.getElementById('algIn').value.trim();
+      if (!raw) { errMsg.textContent = 'Paste at least one alg.'; return; }
+
+      const lines = raw.split('\n').map(l => l.trim())
+        .filter(l => l && !l.toLowerCase().startsWith('searching'));
+      if (!lines.length) { errMsg.textContent = 'No valid alg lines found.'; return; }
+
+      const karnSel = document.getElementById('karnSel').value;
+      const karnB = karnSel === 'yes' ? true : karnSel === 'no' ? false : null;
+
+      setBusy(true);
+      await yieldToBrowser();
+
+      try {
+        computeDerived(lines, karnB, errMsg);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    // ── Derive ────────────────────────────────────────────────────────────────────
+
+    // Canonical form of an alg: normalize with no Y2s, strip comments.
+    function canonical(algIn, karnB) {
+      try {
+        return normalize(algIn, [], karnB)
+          .replace(/ \(bad finish\)| \(alignment changes\)/g, '')
+          .trim();
+      } catch { return algIn.trim(); }
+    }
+
+    function computeDerived(lines, karnB, errMsg) {
+      const groups = [];
+
+      // ── Dedupe input lines by canonical form ──────────────────────────────────
+      const seenCanon = new Set();
+      const uniqueLines = [];
+      for (const line of lines) {
+        const canon = canonical(line, karnB);
+        if (!seenCanon.has(canon)) {
+          seenCanon.add(canon);
+          uniqueLines.push(line);
+        }
+      }
+
+      for (const line of uniqueLines) {
+        const numPos = countY2Positions(line);
+        const total = 1 << numPos;          // 2^numPos
+        const seen = new Map();            // result string → best score
+
+        for (let mask = 0; mask < total; mask++) {
+          const lfLst = [];
+          for (let bit = 0; bit < numPos; bit++) if (mask & (1 << bit)) lfLst.push(bit + 1);
+          try {
+            const result = normalize(line, lfLst, karnB);
+            const algOnly = result.replace(/ \(bad finish\)| \(alignment changes\)/g, '').trim();
+            const { score } = rateAlg(algOnly);
+            if (!seen.has(result) || score > seen.get(result)) seen.set(result, score);
+          } catch { /* skip unparseable combos */ }
+        }
+
+        if (!seen.size) {
+          groups.push({ variants: [{ alg: 'ERROR: could not parse alg', score: -Infinity }], expanded: false });
+          continue;
+        }
+        const sorted = [...seen.entries()]
+          .map(([alg, score]) => ({ alg, score }))
+          .sort((a, b) => b.score - a.score);
+        groups.push({ variants: sorted, expanded: false });
+      }
+
+      lastGroups = groups;
+
+      const isSingle = uniqueLines.length === 1;
+      const sub = document.getElementById('resultSub');
+      if (isSingle && groups[0]) {
+        const n = groups[0].variants.length;
+        sub.textContent = `${n} variant${n !== 1 ? 's' : ''} generated`;
+      } else {
+        const skipped = lines.length - uniqueLines.length;
+        sub.textContent = `${groups.length} alg${groups.length !== 1 ? 's' : ''}` +
+          (skipped > 0 ? ` (${skipped} duplicate${skipped !== 1 ? 's' : ''} removed)` : '');
+      }
+
+      renderDerived(groups, isSingle);
+      document.getElementById('copyBtn').style.display = '';
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────────
+
+    function renderDerived(groups, isSingle) {
+      const out = document.getElementById('resultOut');
+      out.innerHTML = '';
+
+      if (!groups.length) {
+        out.innerHTML = '<div class="output-empty">No results.</div>';
+        return;
+      }
+
+      if (isSingle) {
+        const g = groups[0];
+        out.innerHTML = g.variants.map((v, i) =>
+          `<div class="alg-row">${buildInner(v.alg, i === 0 ? 'top-single' : 'variant')}</div>`
+        ).join('');
+        return;
+      }
+
+      // Multiple algs: accordion
+      const frag = document.createDocumentFragment();
+      for (const g of groups) {
+        const wrap = document.createElement('div');
+        renderGroup(wrap, g);
+        wrap.addEventListener('click', () => {
+          if ((window.getSelection()?.toString().length ?? 0) > 0) return;
+          g.expanded = !g.expanded;
+          renderGroup(wrap, g);
+        });
+        frag.appendChild(wrap);
+      }
+      out.appendChild(frag);
+    }
+
+    function renderGroup(el, g) {
+      const top = g.variants[0];
+      if (!top) { el.innerHTML = ''; return; }
+      const hasMore = g.variants.length > 1;
+      const ch = hasMore ? (g.expanded ? '▴' : '▾') : ' ';
+
+      let html = `<div class="alg-row clickable">
+      <span class="chevron" aria-hidden="true">${ch}</span>
+      ${buildInner(top.alg, 'top-multi')}
+    </div>`;
+
+      if (g.expanded && hasMore) {
+        for (let i = 1; i < g.variants.length; i++) {
+          html += `<div class="alg-row" style="background:color-mix(in srgb,var(--surface) 60%,transparent)">
+              <span style="width:18px;flex-shrink:0;user-select:none"></span>
+              ${buildInner(g.variants[i].alg, 'variant')}
+            </div>`;
+        }
+      }
+      el.innerHTML = html;
+    }
+
+    // Build inner HTML for one alg row.
+    // Algs with (bad finish) / (alignment changes) are always gray+italic.
+    function buildInner(algStr, textCls) {
+      const isErr = algStr.startsWith('ERROR');
+      const hasBF = algStr.includes('(bad finish)');
+      const hasAC = algStr.includes('(alignment changes)');
+      const hasNote = hasBF || hasAC;
+      const algPart = algStr.replace(/ \(bad finish\)| \(alignment changes\)/g, '').trim();
+      const notes = [];
+      if (hasBF) notes.push('(bad finish)');
+      if (hasAC) notes.push('(alignment changes)');
+      const cls = isErr ? 'err' : hasNote ? 'noted' : textCls;
+      return `<span class="alg-text ${cls}">${esc(isErr ? algStr : algPart)}</span>` +
+        (hasNote ? `<span class="alg-note">${esc(notes.join(' '))}</span>` : '');
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
 </body>
+
 </html>
