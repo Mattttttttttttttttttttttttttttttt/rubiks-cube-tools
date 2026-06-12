@@ -228,16 +228,16 @@
 
   <script type="module">
     import { buildNav } from '../shared/nav.js';
-    import { normalize, isKarn, rateAlg, countY2Positions } from '../shared/sq1lib.js';
+    import { applyY2s, isKarn, rateAlg, countY2Positions } from '../shared/sq1lib.js';
     buildNav('sq1');
 
-    // ── State ─────────────────────────────────────────────────────────────────────
+    // ── state ──
     let flashTimer = null;
     let lastGroups = null;
 
     const goBtn = document.getElementById('goBtn');
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+    // ── keyboard shortcuts ──
     document.addEventListener('keydown', e => {
       if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); triggerCompute(); return; }
       if (e.ctrlKey && e.key === 'c') {
@@ -255,18 +255,18 @@
     goBtn.addEventListener('click', triggerCompute);
     document.getElementById('copyBtn').addEventListener('click', triggerCopy);
 
-    // ── Spinner helpers ───────────────────────────────────────────────────────────
+    // ── spinner ──
     function setBusy(on) {
       goBtn.classList.toggle('loading', on);
       goBtn.disabled = on;
     }
 
-    // Yield to the browser so the spinner renders before heavy JS runs.
+    // yield to browser so spinner renders before heavy work
     function yieldToBrowser() {
       return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
     }
 
-    // ── Copy ──────────────────────────────────────────────────────────────────────
+    // ── copy ──
     function triggerCopy() {
       if (!lastGroups) return;
       const text = lastGroups.map(g => {
@@ -282,7 +282,7 @@
       });
     }
 
-    // ── Main entry ────────────────────────────────────────────────────────────────
+    // ── main entry ──
     async function triggerCompute() {
       const errMsg = document.getElementById('errMsg');
       errMsg.textContent = '';
@@ -307,12 +307,12 @@
       }
     }
 
-    // ── Derive ────────────────────────────────────────────────────────────────────
+    // ── derive ──
 
-    // Canonical form of an alg: normalize with no Y2s, strip comments.
+    // canonical form of an alg: apply no y2s, strip comments
     function canonical(algIn, karnB) {
       try {
-        return normalize(algIn, [], karnB)
+        return applyY2s(algIn, [], karnB)
           .replace(/ \(bad finish\)| \(alignment changes\)/g, '')
           .trim();
       } catch { return algIn.trim(); }
@@ -321,7 +321,7 @@
     function computeDerived(lines, karnB, errMsg) {
       const groups = [];
 
-      // ── Dedupe input lines by canonical form ──────────────────────────────────
+      // dedupe input lines by canonical form
       const seenCanon = new Set();
       const uniqueLines = [];
       for (const line of lines) {
@@ -341,7 +341,7 @@
           const lfLst = [];
           for (let bit = 0; bit < numPos; bit++) if (mask & (1 << bit)) lfLst.push(bit + 1);
           try {
-            const result = normalize(line, lfLst, karnB);
+            const result = applyY2s(line, lfLst, karnB);
             const algOnly = result.replace(/ \(bad finish\)| \(alignment changes\)/g, '').trim();
             const { score } = rateAlg(algOnly);
             if (!seen.has(result) || score > seen.get(result)) seen.set(result, score);
@@ -375,7 +375,7 @@
       document.getElementById('copyBtn').style.display = '';
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────────
+    // ── render ──
 
     function renderDerived(groups, isSingle) {
       const out = document.getElementById('resultOut');
@@ -431,8 +431,7 @@
       el.innerHTML = html;
     }
 
-    // Build inner HTML for one alg row.
-    // Algs with (bad finish) / (alignment changes) are always gray+italic.
+    // algs with (bad finish) / (alignment changes) are always gray+italic
     function buildInner(algStr, textCls) {
       const isErr = algStr.startsWith('ERROR');
       const hasBF = algStr.includes('(bad finish)');

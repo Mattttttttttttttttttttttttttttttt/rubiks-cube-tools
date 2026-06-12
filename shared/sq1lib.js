@@ -1,13 +1,13 @@
 // sq1lib.js — Square-1 unified library
-// Karn / unkarnify / ergonomics logic kept in sync with karn.js (source of truth).
-// OBLP trainer data and normalize() live here only.
+// karn/unkarnify/ergonomics kept in sync with karn.js (source of truth).
+// OBLP trainer data and applyY2s() live here only.
 
 // =============================================================================
-// SECTION 1 — DATA TABLES  (from karn.js)
+// SECTION 1 — DATA TABLES
 // =============================================================================
 
-// karnToWCA — Karnotation token → WCA numeric slash segments.
-// Space-padded so global replace cannot match partial tokens.
+// karnToWCA — karnotation token → WCA numeric slash segment.
+// space-padded so global replace can't match partial tokens.
 export const karnToWCA = {
   " U4 ": " / U U' U U' / ", " U4' ": " / U' U U' U / ",
   " D4 ": " / D D' D D' / ", " D4' ": " / D' D D' D / ",
@@ -63,7 +63,7 @@ export const karnToWCA = {
   " g ": " /4,-5/ ", " g' ": " /-4,5/ ",
 };
 
-// wcaToKarn — inverse direction: WCA token streams → Karnotation names.
+// wcaToKarn — inverse: WCA token streams → karnotation names.
 export const wcaToKarn = {
   " U U' U U' ": " U4 ", " U' U U' U ": " U4' ",
   " D D' D D' ": " D4 ", " D' D D' D ": " D4' ",
@@ -109,7 +109,7 @@ export const wcaToKarn = {
   " 2,5 ": " k ", " -2,-5 ": " k' ",
 };
 
-// Backward-compat aliases for tools that still import INV_NORM / NORM.
+// backward-compat aliases
 export const INV_NORM = wcaToKarn;
 export const NORM = karnToWCA;
 
@@ -160,10 +160,10 @@ export const shorthandToKarn = {
   "but00": "", "also00": "", "done!00": "0,0",
 };
 
-// User-editable one-off string replacements applied before anything else.
+// one-off string replacements applied before anything else
 export const tempReplacements = {};
 
-// Set of user-registered extra shorthands (populated externally if needed).
+// extra shorthands registered externally
 export const extraShorthands = new Set();
 
 const GOOD_FINISHES = new Set([
@@ -220,7 +220,7 @@ export const MOVE_VALUES = new Map([
 
 
 // =============================================================================
-// SECTION 2 — CORE UTILITIES  (from karn.js)
+// SECTION 2 — CORE UTILITIES
 // =============================================================================
 
 export function dictReplace(str, dict) {
@@ -255,7 +255,7 @@ export function addMoves(move1, move2) {
   return `${legalMove(u1 + u2)},${legalMove(d1 + d2)}`;
 }
 
-// Backward-compat alias (numeric-only, no A/a handling).
+// backward-compat alias
 export function addMovesStr(move1, move2) {
   return addMoves(move1, move2);
 }
@@ -266,7 +266,7 @@ export function getAlignment(topA, bottomA) {
 
 
 // =============================================================================
-// SECTION 3 — UNKARNIFY PIPELINE
+// SECTION 3 — UNKARNIFY
 // =============================================================================
 
 export function unkarnifyHelp(scramble) {
@@ -277,7 +277,7 @@ export function unkarnifyHelp(scramble) {
     .replaceAll(/\s+/g, "/");
 }
 
-// addCommas — expands compact karn numeric tokens e.g. "2-1" → "2,-1".
+// addCommas — expands compact karn numeric tokens, e.g. "2-1" → "2,-1".
 export function addCommas(scramble) {
   return scramble.split(" ").map(move => {
     if (!move || isNaN(Number(move.replaceAll("-", "")))) return move;
@@ -374,7 +374,7 @@ export function unkarnify(scramble) {
 
 
 // =============================================================================
-// SECTION 4 — KARNIFY  (from karn.js)
+// SECTION 4 — KARNIFY
 // =============================================================================
 
 export function karnify(scramble) {
@@ -386,7 +386,7 @@ export function karnify(scramble) {
 
 
 // =============================================================================
-// SECTION 5 — ERGONOMICS RATING  (from karn.js)
+// SECTION 5 — ERGONOMICS RATING
 // =============================================================================
 
 export function getMoveValue(startA, upslice, move) {
@@ -502,7 +502,7 @@ export function rateAndSort(algLines, posHex = "", useKarn = true) {
 
 
 // =============================================================================
-// SECTION 6 — NORMALIZE
+// SECTION 6 — ALG TRANSFORM
 // =============================================================================
 
 function sepIndex(a) {
@@ -528,7 +528,7 @@ function comma(a) {
 }
 
 // algToInternal — parse any input format into space-separated no-comma compact
-// segments, e.g. "30 -33 30".  Uses full unkarnify for Karn input.
+// segments, e.g. "30 -33 30". uses full unkarnify for karn input.
 function algToInternal(algIn) {
   let alg = algIn.replace(/\[.*?\]/g, "").trim();
   if (isKarn(alg)) {
@@ -558,7 +558,7 @@ function algToInternal(algIn) {
   }).join(" ");
 }
 
-// countY2Positions — number of interior positions where a Y2 can be inserted.
+// countY2Positions — number of interior slots where a y2 can be inserted.
 export function countY2Positions(algIn) {
   try {
     const segs = algToInternal(algIn).split(" ").filter(p => p);
@@ -566,22 +566,21 @@ export function countY2Positions(algIn) {
   } catch { return 0; }
 }
 
-// normalize — applies explicit 2s at the positions listed in lfLst (1-based),
-// optimizes, and returns the result with optional comment annotations.
-// `leave` param is kept for API compatibility but normalization (auto-complement)
-// has been removed; only explicit lfLst Y2s are applied
-export function normalize(algIn, lfLst, k = null, leave = true) {
+// applyY2s — applies y2s at the 1-based interior positions in lfLst,
+// then returns the alg with "(bad finish)" / "(alignment changes)" annotations.
+// k=true forces karn output, k=false forces slash, k=null follows input format.
+export function applyY2s(algIn, lfLst, k = null) {
   let alg = algIn.replace(/\[.*?\]/g, "").trim();
   if (!lfLst || lfLst.length === 0) lfLst = [];
 
   const ki = isKarn(alg);
   const kOut = k === null ? ki : k;
 
-  // Parse to internal space-separated no-comma format
+  // parse to internal space-separated no-comma format
   alg = algToInternal(algIn);
   let alst = alg.split(" ").filter(p => p);
 
-  // Save boundary compact values now — optimize may merge them into adjacent moves
+  // save boundary values for alignment-changes check
   const boundaryStart = alst[0];
   const boundaryEnd = alst[alst.length - 1];
 
@@ -595,17 +594,17 @@ export function normalize(algIn, lfLst, k = null, leave = true) {
     alst[i] = m;
   }
 
-  // Fix last interior move
+  // fix last interior move
   const lastMoveIdx = alst.length - 2;
   alst[lastMoveIdx] = facingD ? lf(alst[lastMoveIdx]) : alst[lastMoveIdx];
   alst[lastMoveIdx] = (lfing !== facingD) ? compl(alst[lastMoveIdx]) : alst[lastMoveIdx];
   const lastMove = alst[lastMoveIdx];
 
-  // Add commas to all segments including boundaries
+  // add commas to all segments including boundaries
   for (let i = 0; i < alst.length; i++) alst[i] = comma(alst[i]);
   alg = alst.join('/');
 
-  // Build comment
+  // build comment
   let comment = GOOD_FINISHES.has(lastMove) ? '' : ' (bad finish)';
   const topAligned = seg => parseInt(seg.slice(0, sepIndex(seg)), 10) % 3 === 0;
   if (topAligned(boundaryStart) !== topAligned(boundaryEnd)) comment += ' (alignment changes)';
