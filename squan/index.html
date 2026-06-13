@@ -192,7 +192,7 @@
         <!-- Textarea grows to fill remaining panel height -->
         <div id="algInGroup" class="input-group">
           <label class="label" for="algIn">Alg(s)</label>
-          <textarea id="algIn" placeholder="/3,0/-3,3/3,0/&#10;or&#10;A U' d e U' d e e T' A"></textarea>
+          <textarea id="algIn" placeholder="/3,0/-3,3/3,0/&#10;or&#10;10 U' d e U' d e e T' -10"></textarea>
           <div id="algBadge" class="format-badge" style="display:none;align-items:flex-start"></div>
         </div>
 
@@ -399,14 +399,12 @@
           const algOnly = result.replace(/ \(bad finish\)| \(alignment changes in CS\)/g, '').trim();
           const { score, sliceStart } = squanLib.rateAlg(algOnly);
 
-          // rateAlg recommends a starting slice direction — apply it to the
-          // first '/' of the alg so it isn't lost (matches rateAndSort).
-          let display = result;
-          if (['/', '\\', '|'].includes(sliceStart)) {
-            const slashPos = result.indexOf('/');
-            if (slashPos >= 0)
-              display = result.slice(0, slashPos) + sliceStart + result.slice(slashPos + 1);
-          }
+          // rateAlg recommends a starting slice direction — inject it via the lib
+          // (strip the comment first, then re-attach it) so it isn't lost.
+          const comment = result.match(/(?: \([^)]*\))+$/)?.[0] ?? '';
+          const display = ['/', '\\', '|'].includes(sliceStart)
+            ? squanLib.injectSliceStart(algOnly, sliceStart) + comment
+            : result;
           if (!seen.has(display) || score > seen.get(display)) seen.set(display, score);
         }
 

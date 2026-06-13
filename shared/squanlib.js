@@ -63,7 +63,6 @@ export default class SquanLib {
         "d2": "-1,5", "d2'": "1,-5",
         "K": "5,2", "K'": "-5,-2",
         "k": "2,5", "k'": "-2,-5",
-        "A": "1,0", "A'": "-1,0",
         "G": "5,-4", "G'": "-5,4",
         "g": "4,-5", "g'": "-4,5",
     };
@@ -1374,14 +1373,30 @@ export default class SquanLib {
             rated = true;
 
             if (rated && ["/", "\\", "|"].includes(sliceStart)) {
-                // Replace the first '/' in the alg-only portion of the display line.
-                const slashPos = line.indexOf('/');
-                if (slashPos >= 0)
-                    result.alg = line.slice(0, slashPos) + sliceStart + line.slice(slashPos + 1);
+                result.alg = this.injectSliceStart(line, sliceStart);
             }
 
             return result;
         }).sort((a, b) => b.score - a.score);
+    }
+
+    /**
+     * injectSliceStart: injects the slice start into an alg
+     *
+     * @param {string} alg the alg. no extra spaces allowed
+     * @param {string} sliceStart " " | "/" | "\\" | "|"
+     * @returns {string} the alg with slice start injected at the first slice
+     */
+    injectSliceStart(alg, sliceStart) {
+        let moreThan1 = /[/\\| ]/.test(alg); // is there ANY slice chars?
+        let firstMove = moreThan1 ? alg.match(/^([^/\\| ]*)[/\\| ]/)?.[1] : alg;
+        // only tests if it's a karn
+        if (firstMove in SquanLib.karnToWCA) return sliceStart + alg;
+        if (!moreThan1) return alg; // no slice to inject to
+
+        // guaranteed to have a slice
+        const slashPos = alg.search(/[/\\| ]/);
+        return alg.slice(0, slashPos) + sliceStart + alg.slice(slashPos + 1);
     }
 
     // =========================================================================
