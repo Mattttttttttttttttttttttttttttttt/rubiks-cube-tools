@@ -270,10 +270,10 @@ export default class SquanLib {
      * GOOD_FINISHES: moves that are acceptable as the last move
      */
     static GOOD_FINISHES = new Set([
-        "11", "-1-1", "22", "-2-2", "2-1", "-21", "1-2", "-12",
-        "30", "-30", "03", "0-3", "33", "3-3", "-3-3", "-33",
-        "41", "-4-1", "14", "-1-4", "2-4", "-24", "4-2", "-42",
-        "5-1", "-51", "-45", "-54", "63",
+        "1,1", "-1,-1", "2,2", "-2,-2", "2,-1", "-2,1", "1,-2", "-1,2",
+        "3,0", "-3,0", "0,3", "0,-3", "3,3", "3,-3", "-3,-3", "-3,3",
+        "4,1", "-4,-1", "1,4", "-1,-4", "2,-4", "-2,4", "4,-2", "-4,2",
+        "5,-1", "-5,1", "-4,5", "-5,4", "6,3",
     ]);
 
     /**
@@ -1031,10 +1031,22 @@ export default class SquanLib {
         // now go through scramble move by move to apply base karn
         let s = alg.split(" ").filter(Boolean);
         for (let i = 0; i < s.length; i++) {
-            if (i === 0 && !startsSlice) continue;
-            if (i === s.length - 1 && !endsSlice) break;
+            if (i === 0 && !startsSlice) {
+                // even if it's in base karn, we can't karnify
+                s[i] = s[i].replace(",", "");
+                continue;
+            }
+            if (i === s.length - 1 && !endsSlice) {
+                // even if it's in base karn, we can't karnify
+                s[i] = s[i].replace(",", "");
+                break;
+            }
             // good to replace
-            s[i] = SquanLib.wcaToBaseKarn[s[i]] ? SquanLib.wcaToBaseKarn[s[i]] : s[i].replace(",", "");
+            let inBaseKarn = s[i] in SquanLib.wcaToBaseKarn;
+            s[i] = inBaseKarn ? SquanLib.wcaToBaseKarn[s[i]] : s[i].replace(",", "");
+            // prevent an additional leading slice for first move karn
+            if (inBaseKarn && i === 0) startingSlice = startingSlice.replace("/", "");
+            if (inBaseKarn && i === s.length - 1) endingSlice = "";
         }
 
         alg = startingSlice + s.join(" ") + endingSlice;
@@ -1291,15 +1303,17 @@ export default class SquanLib {
         let isTopA = false, oddSlice = true;
 
         for (let i = 0; i < r.length - 1; i++) {
-            let c = r[i].indexOf(',');
+            let move = r[i]
+            let c = move.indexOf(',');
             if (c === -1) {
-                const m = this.addCommas(r[i]);
-                c = m.indexOf(',');
+                // if the move is empty, it's 0,0
+                move = move ? this.addCommas(move) : "0,0";
+                c = move.indexOf(',');
                 if (c === -1)
-                    throw new Error(`rateAlg:\nalg: ${algRaw}\nmove: ${r[i]}\nis weird.`)
+                    throw new Error(`rateAlg:\nalg: ${algRaw}\nmove: ${move}\nis weird.`)
             }
-            const t = parseInt(r[i].slice(0, c), 10);
-            if (isNaN(t)) throw new Error(`rateAlg:\nalg: ${algRaw}\nmove: ${r[i]}\nis weird.`)
+            const t = parseInt(move.slice(0, c), 10);
+            if (isNaN(t)) throw new Error(`rateAlg:\nalg: ${algRaw}\nmove: ${move}\nis weird.`)
 
             if (i === 0) {
                 // 1st move: use to determine initial alignment
@@ -1308,8 +1322,8 @@ export default class SquanLib {
                 continue;
             }
 
-            ergoUp += this.getMoveValue(isTopA, oddSlice, r[i]);
-            ergoDown += this.getMoveValue(isTopA, !oddSlice, r[i]);
+            ergoUp += this.getMoveValue(isTopA, oddSlice, move);
+            ergoDown += this.getMoveValue(isTopA, !oddSlice, move);
             isTopA = isTopA !== (t % 3 !== 0);
             oddSlice = !oddSlice;
         }
@@ -1387,28 +1401,38 @@ export default class SquanLib {
     /**
      * compl: get the complement of a move
      *
-     * @param {string} a a move without commas, e.g. "-12"
-     * @returns {string} the complement move
-     * @example "-12" → "5-4"
+     * @param {string} a a move
+     * @returns {string} the complement move with commas
+     * @example "-12" → "5,-4"; "-1,2" → "5,-4"
      */
     compl(a) {
         if (!a) return a;
-        const inx = this.sepIndex(a);
-        return String(this.legalMove(6 + parseInt(a.slice(0, inx), 10))) +
-            String(this.legalMove(6 + parseInt(a.slice(inx), 10)));
+        let u, d;
+        if (a.includes(',')) [u, d] = a.split(",");
+        else {
+            const inx = this.sepIndex(a);
+            [u, d] = [a.slice(0, inx), a.slice(inx)];
+        }
+        return String(this.legalMove(6 + parseInt(u, 10))) + "," +
+            String(this.legalMove(6 + parseInt(d, 10)));
     }
 
     /**
      * lf: get the layer flip of a move
      *
-     * @param {string} a a move without commas, e.g. "-12"
+     * @param {string} a a move
      * @returns {string} the layer flip move
-     * @example "-12" → "2-1"
+     * @example "-12" → "2,-1"; "-1,2" → "2,-1"
      */
     lf(a) {
         if (!a) return a;
-        const inx = this.sepIndex(a);
-        return a.slice(inx) + a.slice(0, inx);
+        let u, d;
+        if (a.includes(',')) [u, d] = a.split(",");
+        else {
+            const inx = this.sepIndex(a);
+            [u, d] = [a.slice(0, inx), a.slice(inx)];
+        }
+        return d + "," + u;
     }
 
     /**
@@ -1421,11 +1445,11 @@ export default class SquanLib {
     compact(algIn) {
         let alg = algIn
             .replace(/\[.*?\]/g, "")
-            .replace(/[()]/g, "")
-            .replaceAll(" ", "").trim();
+            .replace(/[()]/g, "").trim();
         if (this.isKarn(alg)) {
             const numeric = this.unkarnify(alg);
-            return numeric.split("/").filter(Boolean).map(m => {
+            return numeric.split("/").map(m => {
+                if (!m) return m;
                 if (!m.includes(","))
                     throw new Error(
                         `algToInternal: m doesn't have commas post karnifying: ${m}`
@@ -1435,7 +1459,7 @@ export default class SquanLib {
                     String(this.legalMove(parseInt(d, 10)));
             }).join(" ");
         }
-        alg = alg.trim();
+        alg = alg.replaceAll(" ", "");
         if (alg.includes("/")) {
             return alg.split("/").filter(Boolean).map(m => {
                 if (!m.includes(",")) m = this.addCommas(m);
@@ -1464,7 +1488,8 @@ export default class SquanLib {
      * @returns {number} how many positions the alg can y2 at
      */
     countY2Positions(algIn) {
-        const segs = this.compact(algIn).split(" ").filter(p => p);
+        // spaces ARE slices, cannot trim or do anything like that
+        const segs = this.compact(algIn).split(" ");
         return Math.max(0, segs.length - 3);
     }
 
@@ -1616,7 +1641,7 @@ export default class SquanLib {
     isOBLCase(l, target) {
         const targetPattern = Object.entries(SquanLib.OBLToEnglish)
             .find(([, v]) => v === target
-        )?.[0];
+            )?.[0];
         if (!targetPattern) return false;
         // to corner first
         if (l[0] !== l[0].toUpperCase()) l = this.shift(l, -1);
