@@ -216,7 +216,7 @@
           <div class="panel-title"><span class="dot" style="background:#555"></span>Result</div>
           <div class="panel-sub" id="resultSub"></div>
         </div>
-        <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result</button>
+        <button class="btn btn-ghost" id="copyBtn" style="display:none">Copy result <kbd>Ctrl+C</kbd></button>
         <div id="resultOut">
           <div class="output-empty">Paste alg(s) and click Derive.</div>
         </div>
@@ -301,10 +301,10 @@
       }).join('\n');
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById('copyBtn');
-        const old = btn.textContent;
+        const old = btn.innerHTML;
         btn.textContent = 'Copied!'; btn.classList.add('flash');
         clearTimeout(flashTimer);
-        flashTimer = setTimeout(() => { btn.textContent = old; btn.classList.remove('flash'); }, 1500);
+        flashTimer = setTimeout(() => { btn.innerHTML = old; btn.classList.remove('flash'); }, 1500);
       });
     }
 
@@ -334,7 +334,7 @@
         showError('Something went wrong while deriving — tell Matt!!');
         document.getElementById('resultSub').textContent = '';
         document.getElementById('resultOut').innerHTML =
-          '<div class="output-empty">Could not derive — see the error above.</div>';
+          '<div class="output-empty">Could not derive — see the error badge.</div>';
         document.getElementById('copyBtn').style.display = 'none';
       } finally {
         setBusy(false);
@@ -389,8 +389,17 @@
           for (let bit = 0; bit < numPos; bit++) if (mask & (1 << bit)) lfLst.push(bit + 1);
           const result = squanLib.applyY2s(line, lfLst, karnB);
           const algOnly = result.replace(/ \(bad finish\)| \(alignment changes in CS\)/g, '').trim();
-          const { score } = squanLib.rateAlg(algOnly);
-          if (!seen.has(result) || score > seen.get(result)) seen.set(result, score);
+          const { score, sliceStart } = squanLib.rateAlg(algOnly);
+
+          // rateAlg recommends a starting slice direction — apply it to the
+          // first '/' of the alg so it isn't lost (matches rateAndSort).
+          let display = result;
+          if (['/', '\\', '|'].includes(sliceStart)) {
+            const slashPos = result.indexOf('/');
+            if (slashPos >= 0)
+              display = result.slice(0, slashPos) + sliceStart + result.slice(slashPos + 1);
+          }
+          if (!seen.has(display) || score > seen.get(display)) seen.set(display, score);
         }
 
         const sorted = [...seen.entries()]
@@ -407,7 +416,7 @@
 
       if (!groups.length) {
         sub.textContent = '';
-        out.innerHTML = '<div class="output-empty">No valid algs to derive — see the error above.</div>';
+        out.innerHTML = '<div class="output-empty">No valid algs to derive — see the error badge.</div>';
         document.getElementById('copyBtn').style.display = 'none';
         return;
       }
@@ -442,7 +451,7 @@
       if (isSingle) {
         const g = groups[0];
         out.innerHTML = g.variants.map((v, i) =>
-          `<div class="alg-row">${buildInner(v.alg, i === 0 ? 'top-single' : 'variant')}</div>`
+          `<div class="alg-row">${buildInner(v.alg, i === 0 ? 'top-single' : 'variant', v.score)}</div>`
         ).join('');
         return;
       }
@@ -470,14 +479,14 @@
 
       let html = `<div class="alg-row clickable">
       <span class="chevron" aria-hidden="true">${ch}</span>
-      ${buildInner(top.alg, 'top-multi')}
+      ${buildInner(top.alg, 'top-multi', top.score)}
     </div>`;
 
       if (g.expanded && hasMore) {
         for (let i = 1; i < g.variants.length; i++) {
           html += `<div class="alg-row" style="background:color-mix(in srgb,var(--surface) 60%,transparent)">
               <span style="width:18px;flex-shrink:0;user-select:none"></span>
-              ${buildInner(g.variants[i].alg, 'variant')}
+              ${buildInner(g.variants[i].alg, 'variant', g.variants[i].score)}
             </div>`;
         }
       }
@@ -485,7 +494,7 @@
     }
 
     // algs with (bad finish) / (alignment changes) are always gray+italic
-    function buildInner(algStr, textCls) {
+    function buildInner(algStr, textCls, score) {
       const hasBF = algStr.includes('(bad finish)');
       const hasAC = algStr.includes('(alignment changes in CS)');
       const hasNote = hasBF || hasAC;
@@ -494,7 +503,8 @@
       if (hasBF) notes.push('(bad finish)');
       if (hasAC) notes.push('(alignment changes in CS)');
       const cls = hasNote ? 'noted' : textCls;
-      return `<span class="alg-text ${cls}">${esc(algPart)}</span>` +
+      const rating = Number.isFinite(score) ? ` (${Math.round(score)})` : '';
+      return `<span class="alg-text ${cls}">${esc(algPart + rating)}</span>` +
         (hasNote ? `<span class="alg-note">${esc(notes.join(' '))}</span>` : '');
     }
 
