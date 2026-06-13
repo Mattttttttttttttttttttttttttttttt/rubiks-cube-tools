@@ -204,7 +204,8 @@ export function avg(solves, numSolves, decimals = 0) {
    * @returns {number|string} average value
    */
   if (numSolves <= 2) throw new Error('avg requires >= 3 solves');
-  const delete_ = Math.floor(numSolves / 20) + 1;
+  // cstimer trims ceil(n * 5%) = ceil(n/20) from each end (not floor(n/20)+1)
+  const delete_ = Math.ceil(numSolves / 20);
 
   if (numSolves === 3) {
     if (solves.some(_isDNF)) return Number.MAX_SAFE_INTEGER;
@@ -272,6 +273,19 @@ export function minutesDnf(a) {
   return parseFloat(np);
 }
 
+export function addSeconds(secStr, delta) {
+  /**
+   * string-safe integer add/subtract on a plain decimal-seconds string,
+   * to avoid floating point error (e.g. 1.256 + 2 -> "3.256", not 3.2560000000000002)
+   * @param {string|number} secStr - seconds with no colon, e.g. "1.256"
+   * @param {number} delta - integer seconds to add (may be negative)
+   * @returns {string} the adjusted seconds string
+   */
+  const [intPart, decPart] = String(secStr).split('.');
+  const newInt = parseInt(intPart, 10) + delta;
+  return decPart !== undefined ? `${newInt}.${decPart}` : String(newInt);
+}
+
 export function plusTwoSolve(raw, penalty) {
   // returns new penalty state - toggles +2
   if (penalty === 'dnf') return 'dnf'; // can't +2 a DNF (handled in UI)
@@ -287,8 +301,7 @@ export function solveString(raw, penalty) {
   if (!raw) return '';
   if (penalty === 'dnf') return `DNF(${raw})`;
   if (penalty === 'p2') {
-    const val = minutes(raw);
-    return seconds(String(val + 2)) + '+';
+    return seconds(addSeconds(String(minutes(raw)), 2)) + '+';
   }
   return raw;
 }
@@ -328,8 +341,8 @@ export function avgStr(num, solvesIn) {
     return { avg: avgVal, solves };
   }
 
-  // average of n (trim best/worst)
-  const delete_ = Math.floor(num / 20) + 1;
+  // average of n (trim best/worst) — cstimer trims ceil(n/20) from each end
+  const delete_ = Math.ceil(num / 20);
   const copy = [...solves];
   const rawVals = solves.map(s => String(minutesDnf(s)));
   const avgVal = roundDecimal(solvesIn, seconds(String(avg(rawVals, num))));

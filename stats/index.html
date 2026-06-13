@@ -172,7 +172,7 @@ import { buildNav } from '../shared/nav.js';
 import {
   noBrackets, noMultiphase, noParen, minutes, seconds,
   ndnf, ydnf, prths, nprths, findAll, isTimeList, parsePaste,
-  frwrd, repeat, avg, avgCompare, roundDecimal, stdev, numPart
+  frwrd, repeat, avg, avgCompare, roundDecimal, stdev, numPart, addSeconds
 } from '../shared/helpers.js';
 
 buildNav('stats');
@@ -279,7 +279,7 @@ pasteArea.addEventListener('input', () => {
   formatBadge.style.display = (!parsed && hasContent) ? '' : 'none';
   if (parsed) {
     localStorage.setItem(STORAGE_KEY, parsed.timeList.map(t => {
-      let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
+      let s = t; if (s.startsWith('(') && s.endsWith(')')) s = s.slice(1, -1); return s;
     }).join(', '));
     configZone.style.opacity = '1';
     configZone.style.pointerEvents = '';
@@ -393,12 +393,6 @@ function compute() {
   const rFloat = r.map(s => s === 'DNF' ? 'DNF' : parseFloat(s));
   const nonDnfFloat = rFloat.filter(v => v !== 'DNF');
 
-  const parenSolves = timeList.filter((t) => ndnf(t) && prths(t)).map(s => noParen(s));
-  const firstUnParen = timeList.map((t) => nprths(t)).find(s => ndnf(s));
-  const firstUnParenVal = firstUnParen ? minutes(noParen(firstUnParen)) : Infinity;
-  const betterTrim = parenSolves.filter(s => parseFloat(numPart(s)) < firstUnParenVal).length;
-  const worseTrim  = parenSolves.length - betterTrim;
-
   const allNonDnf = timeList.filter((t) => ndnf(t));
   const bestSingle  = allNonDnf.reduce((b, s) => minutes(numPart(s)) < minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
   const worstSingle = allNonDnf.reduce((b, s) => minutes(numPart(s)) > minutes(numPart(b)) ? s : b, allNonDnf[0] ?? '—');
@@ -426,19 +420,15 @@ function compute() {
   if (PLUS_TWO) {
     p2Count = findAll(timeList, '+');
     if (avgVal !== 'DNF' && p2Count > 0) {
+      // un-+2 each solve, then recompute the average from scratch so trimming
+      // re-evaluates with the corrected times (a +2 may no longer be a slow trim).
       const unplus = timeList.map(s => {
         if (ydnf(s)) return 'DNF';
-        if (s.includes('+')) return String(minutes(noParen(s).slice(0, -1)) - 2);
+        if (s.includes('+')) return addSeconds(String(minutes(noParen(s).slice(0, -1))), -2);
         return String(minutes(noParen(s)));
       });
-      unplus.sort((a, b) => (a === 'DNF' ? Infinity : a) - (b === 'DNF' ? Infinity : b));
-      const trimmed = unplus.slice(betterTrim, unplus.length - worseTrim).filter(s => s !== 'DNF');
-      if (trimmed.length) {
-        const raw = trimmed.reduce((a, b) => a + parseFloat(b), 0) / trimmed.length;
-        unP2Avg = seconds(raw.toFixed(decimals));
-      } else {
-        unP2Avg = 'DNF';
-      }
+      const a = avg(unplus, length, decimals);
+      unP2Avg = a === 'DNF' ? 'DNF' : seconds(String(a));
     }
   }
 

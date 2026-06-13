@@ -168,7 +168,7 @@
 
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import { minutes, seconds, avgStr } from '../shared/helpers.js';
+import { minutes, seconds, avgStr, addSeconds } from '../shared/helpers.js';
 buildNav('average');
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ function parseDnfInput(v) {
 
 function renderTimeStr(s) {
   if (s.penalty === 'dnf') return s.raw ? `DNF(${s.raw})` : 'DNF';
-  if (s.penalty === 'p2')  return seconds(String(minutes(s.raw) + 2)) + '+';
+  if (s.penalty === 'p2')  return seconds(addSeconds(String(minutes(s.raw)), 2)) + '+';
   return s.raw;
 }
 
@@ -325,7 +325,7 @@ function createEntryEl(idx) {
       if (timeRegex(base)) {
         const rawSeconds = minutes(base) - 2;
         if (rawSeconds >= 0) {
-          solves[ri].raw     = seconds(String(rawSeconds));
+          solves[ri].raw     = seconds(addSeconds(String(minutes(base)), -2));
           solves[ri].penalty = 'p2';
           solves[ri].p2Source = 'typed';
           applyPenaltyClass(field, 'p2');
@@ -509,7 +509,7 @@ function parseSolveStr(v) {
     const base = v.slice(0, -1).trim();
     if (timeRegex(base)) {
       const rawSeconds = minutes(base) - 2;
-      if (rawSeconds >= 0) return { raw: seconds(String(rawSeconds)), penalty: 'p2', p2Source: 'typed' };
+      if (rawSeconds >= 0) return { raw: seconds(addSeconds(String(minutes(base)), -2)), penalty: 'p2', p2Source: 'typed' };
     }
   }
   return { raw: v, penalty: null };
@@ -633,12 +633,6 @@ function onDragEnd() {
 }
 
 // ── Compute ───────────────────────────────────────────────────────────────────
-function renderSolveString(raw, penalty) {
-  if (penalty === 'dnf') return raw ? `DNF(${raw})` : 'DNF';
-  if (penalty === 'p2')  return seconds(String(minutes(raw) + 2)) + '+';
-  return raw;
-}
-
 function recompute() {
   solveList.querySelectorAll('.solve-error').forEach(el => {
     el.textContent = ''; el.classList.remove('visible');
@@ -657,7 +651,7 @@ function recompute() {
       hasInvalid = true;
       return null;
     }
-    return renderSolveString(raw, s.penalty);
+    return renderTimeStr({ raw, penalty: s.penalty });
   });
 
   const filled = formatted.filter(f => f !== null);

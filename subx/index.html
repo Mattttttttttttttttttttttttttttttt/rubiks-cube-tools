@@ -184,7 +184,7 @@ function compute() {
   // Strip cstimer header if present
   let {timeList} = parsePaste(raw);
   localStorage.setItem(STORAGE_KEY, timeList.map(t => {
-    let s = t; if (s.startsWith('(')) s = s.slice(1); if (s.endsWith(')')) s = s.slice(0,-1); return s;
+    let s = t; if (s.startsWith('(') && s.endsWith(')')) s = s.slice(1, -1); return s;
   }).join(', '));
 
   // ── Optional AoX pre-step ─────────────────────────────────────────────────
