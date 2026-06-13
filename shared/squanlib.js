@@ -710,14 +710,6 @@ export default class SquanLib {
         // overrides
         if (alg in this.tempReplacements) return this.tempReplacements[alg];
 
-        // p scrambles
-        let isPScramble = /^p[ /\\|]/.test(alg);
-        let startingSlice;
-        if (isPScramble) {
-            startingSlice = alg.charAt(1) === " " ? "/" : alg.charAt(1);
-            alg = alg.slice(2, -3);
-        }
-
         // legacy character substitutions
         alg = alg
             .replaceAll('&', '-1')
@@ -725,6 +717,17 @@ export default class SquanLib {
             .replaceAll('9', '-3')
             .replaceAll('8', '-4')
             .replaceAll('7', '-5');
+
+        // remove potential move counts, comments
+        alg = alg.replaceAll(/\[.*?\]/g, "");
+
+        // p scrambles
+        let isPScramble = /^p[ /\\|]/.test(alg);
+        let startingSlice;
+        if (isPScramble) {
+            startingSlice = alg.charAt(1) === " " ? "/" : alg.charAt(1);
+            alg = alg.slice(2, -3);
+        }
 
         // expand move groups, e.g. "(U U')3" → "U U' U U' U U'"
         for (const group of alg.matchAll(/(\(.*?\))(\d+)/g)) {
