@@ -117,15 +117,28 @@
       user-select: text;
     }
 
-    /* chevron — never selectable */
+    /* chevron — never selectable; sized to one alg line so the icon centers
+       vertically on the first line of the alg (which may wrap) */
     .chevron {
       flex-shrink: 0;
       width: 24px;
-      line-height: 1.5;
-      font-size: 1rem;
+      height: calc(.82rem * 1.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: var(--text-muted);
       user-select: none;
       pointer-events: none;
+    }
+
+    .chevron svg {
+      width: 11px;
+      height: 11px;
+      display: block;
+    }
+
+    .chevron.up svg {
+      transform: rotate(180deg);
     }
 
     /* ── Copy button ── */
@@ -489,14 +502,19 @@
       out.appendChild(frag);
     }
 
+    // down-chevron; the .up class flips it vertically for the expanded state
+    const CHEVRON_SVG = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.29289 8.29289C4.68342 7.90237 5.31658 7.90237 5.70711 8.29289L12 14.5858L18.2929 8.29289C18.6834 7.90237 19.3166 7.90237 19.7071 8.29289C20.0976 8.68342 20.0976 9.31658 19.7071 9.70711L12.7071 16.7071C12.3166 17.0976 11.6834 17.0976 11.2929 16.7071L4.29289 9.70711C3.90237 9.31658 3.90237 8.68342 4.29289 8.29289Z" fill="currentColor"/></svg>`;
+
     function renderGroup(el, g) {
       const top = g.variants[0];
       if (!top) { el.innerHTML = ''; return; }
       const hasMore = g.variants.length > 1;
-      const ch = hasMore ? (g.expanded ? '▴' : '▾') : ' ';
+      const chevron = hasMore
+        ? `<span class="chevron${g.expanded ? ' up' : ''}" aria-hidden="true">${CHEVRON_SVG}</span>`
+        : `<span class="chevron" aria-hidden="true"></span>`;
 
       let html = `<div class="alg-row clickable">
-      <span class="chevron" aria-hidden="true">${ch}</span>
+      ${chevron}
       ${buildInner(top.alg, 'top-multi', top.rating)}
     </div>`;
 
