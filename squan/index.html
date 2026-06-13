@@ -49,6 +49,9 @@
     /* ── Result rows ── */
     .alg-row {
       font-family: var(--font-mono);
+      /* algs use raw notation (| - / \) — ligatures would fuse e.g. "|-" → "├─" */
+      font-variant-ligatures: none;
+      font-feature-settings: "liga" 0, "calt" 0;
       font-size: .82rem;
       padding: 6px 2px;
       border-bottom: 1px solid var(--border);
@@ -86,13 +89,18 @@
 
     .alg-text.variant {
       color: var(--text-muted);
-      font-style: italic;
-      padding-left: 18px;
+    }
+
+    /* indent column for variant rows — same width as the chevron so variant
+       algs line up exactly under their group's top alg */
+    .indent {
+      flex-shrink: 0;
+      width: 24px;
+      user-select: none;
     }
 
     .alg-text.noted {
       color: var(--text-muted);
-      font-style: italic;
     }
 
     .alg-text.err {
@@ -408,6 +416,18 @@
         groups.push({ variants: sorted, expanded: false });
       }
 
+      // Ratings are only meaningful relative to each other, so normalize them
+      // around the median (median → 0) and show each as a signed offset.
+      const allScores = groups.flatMap(g => g.variants.map(v => v.score))
+        .filter(Number.isFinite).sort((a, b) => a - b);
+      let median = 0;
+      if (allScores.length) {
+        const mid = allScores.length >> 1;
+        median = allScores.length % 2 ? allScores[mid] : (allScores[mid - 1] + allScores[mid]) / 2;
+      }
+      for (const g of groups)
+        for (const v of g.variants) v.rating = v.score - median;
+
       showError(errors);
       lastGroups = groups;
 
@@ -451,7 +471,7 @@
       if (isSingle) {
         const g = groups[0];
         out.innerHTML = g.variants.map((v, i) =>
-          `<div class="alg-row">${buildInner(v.alg, i === 0 ? 'top-single' : 'variant', v.score)}</div>`
+          `<div class="alg-row">${i === 0 ? '' : '<span class="indent"></span>'}${buildInner(v.alg, i === 0 ? 'top-single' : 'variant', v.rating)}</div>`
         ).join('');
         return;
       }
@@ -479,14 +499,14 @@
 
       let html = `<div class="alg-row clickable">
       <span class="chevron" aria-hidden="true">${ch}</span>
-      ${buildInner(top.alg, 'top-multi', top.score)}
+      ${buildInner(top.alg, 'top-multi', top.rating)}
     </div>`;
 
       if (g.expanded && hasMore) {
         for (let i = 1; i < g.variants.length; i++) {
           html += `<div class="alg-row" style="background:color-mix(in srgb,var(--surface) 60%,transparent)">
-              <span style="width:18px;flex-shrink:0;user-select:none"></span>
-              ${buildInner(g.variants[i].alg, 'variant', g.variants[i].score)}
+              <span class="indent"></span>
+              ${buildInner(g.variants[i].alg, 'variant', g.variants[i].rating)}
             </div>`;
         }
       }
@@ -503,7 +523,11 @@
       if (hasBF) notes.push('(bad finish)');
       if (hasAC) notes.push('(alignment changes in CS)');
       const cls = hasNote ? 'noted' : textCls;
-      const rating = Number.isFinite(score) ? ` (${Math.round(score)})` : '';
+      let rating = '';
+      if (Number.isFinite(score)) {
+        const r = Math.round(score) || 0;   // collapse -0 → 0
+        rating = ` (${r > 0 ? '+' : ''}${r})`;
+      }
       return `<span class="alg-text ${cls}">${esc(algPart + rating)}</span>` +
         (hasNote ? `<span class="alg-note">${esc(notes.join(' '))}</span>` : '');
     }
