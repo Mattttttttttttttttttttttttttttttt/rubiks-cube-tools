@@ -77,6 +77,24 @@
     .key.wide   { min-width: 72px; }
     .key.spacer { background: transparent; border-color: transparent; }
 
+    /* ── Action keys (ENTER / BACKSPACE) span their half of the keyboard ── */
+    .key.action {
+      flex: 5 1 0;
+      min-width: 0;
+      height: 34px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .key.action:hover { background: var(--surface-2); border-color: var(--border-2); }
+    .key.action:active { background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); }
+    .action-label {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
     /* ── Mobile: shrink keys into a phone-keyboard layout that fits the screen ── */
     @media (max-width: 700px) {
       .kbd-bottom { padding: 10px 6px 14px; }
@@ -183,6 +201,15 @@ const KEYBOARD_ROWS = [
 
 // ── Keyboard UI ───────────────────────────────────────────────────────────────
 const keyboardEl = document.getElementById('keyboard');
+
+// Touch / mouse input: focus the box (no OS keyboard thanks to
+// inputmode="none") then feed the existing keydown handler.
+function pressKey(keyName) {
+  ubox.focus();
+  ubox.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true }));
+  ubox.dispatchEvent(new KeyboardEvent('keyup',   { key: keyName, bubbles: true, cancelable: true }));
+}
+
 KEYBOARD_ROWS.forEach(row => {
   const rowDiv = document.createElement('div');
   rowDiv.className = 'kbd-row';
@@ -196,20 +223,31 @@ KEYBOARD_ROWS.forEach(row => {
       const kSpan = document.createElement('div'); kSpan.className = 'k'; kSpan.textContent = k;
       const vSpan = document.createElement('div'); vSpan.className = 'v'; vSpan.textContent = DICT[k] ?? '';
       key.append(kSpan, vSpan);
-
-      // Touch / mouse input: focus the box (no OS keyboard thanks to
-      // inputmode="none") then feed the existing keydown handler.
-      key.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        ubox.focus();
-        ubox.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
-        ubox.dispatchEvent(new KeyboardEvent('keyup',   { key: k, bubbles: true, cancelable: true }));
-      });
+      key.addEventListener('pointerdown', e => { e.preventDefault(); pressKey(k); });
     }
     rowDiv.appendChild(key);
   });
   keyboardEl.appendChild(rowDiv);
 });
+
+// ── Action row: ENTER (under left section) · BACKSPACE (under right) ──────────
+const ACTION_ROW = [
+  { label: 'ENTER',     key: 'Enter'     },
+  null,
+  { label: 'BACKSPACE', key: 'Backspace' },
+];
+const actionRowDiv = document.createElement('div');
+actionRowDiv.className = 'kbd-row';
+ACTION_ROW.forEach(a => {
+  if (!a) { const sp = document.createElement('div'); sp.className = 'key spacer'; actionRowDiv.appendChild(sp); return; }
+  const key = document.createElement('div');
+  key.className = 'key action';
+  const label = document.createElement('div'); label.className = 'action-label'; label.textContent = a.label;
+  key.append(label);
+  key.addEventListener('pointerdown', e => { e.preventDefault(); pressKey(a.key); });
+  actionRowDiv.appendChild(key);
+});
+keyboardEl.appendChild(actionRowDiv);
 
 const pressedTimeouts = new Map();
 document.addEventListener('keydown', e => {
