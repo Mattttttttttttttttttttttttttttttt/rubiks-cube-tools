@@ -60,6 +60,7 @@
       <div class="card-answer" id="answerText"></div>
       <div class="card-time" id="timeText"></div>
     </div>
+    <div id="errBadge" class="format-badge" style="display:none"></div>
   </div>
 </div>
 <script type="module">
@@ -158,6 +159,31 @@ const complement = (m) => '12345678'.replace(new RegExp(`[${m}]`, 'g'), '');
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+// ── error badge (below the flashcard) ───────────────────────────────────────
+const errBadge = document.getElementById('errBadge');
+function showError(msgs) {
+  const arr = (Array.isArray(msgs) ? msgs : [msgs]).filter(Boolean);
+  errBadge.innerHTML = arr.map(esc).join('<br>');
+  errBadge.style.display = arr.length ? 'flex' : 'none';
+}
+function clearError() {
+  errBadge.innerHTML = '';
+  errBadge.style.display = 'none';
+}
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// turn a thrown lib error into a short, user-facing reason for the current memo
+function describeError(e) {
+  const msg = (e && e.message ? e.message : String(e))
+    .replace(/^[A-Za-z0-9_]+:\s*/, '')   // strip "fnName: " dev prefix
+    .replace(/\s*\n\s*/g, ' ')           // collapse multi-line messages
+    .trim();
+  return `“${memo}” — ${msg || 'could not resolve'}`;
+}
+
 function nextCard() {
   state    = 'question';
   inverted = false;
@@ -167,12 +193,13 @@ function nextCard() {
   document.getElementById('memoTag').textContent    = 'Click to reveal';
   document.getElementById('vizArea').innerHTML      = '';
   document.getElementById('invertTag').textContent  = '';
+  clearError();
 
   if (oneface) {
     const corner = rand(SquanLib.TOTAL_CORNERS);
     const edge   = rand(SquanLib.TOTAL_EDGES);
     if (!corner && !edge) { nextCard(); return; }
-    let layer = SquanLib.sortOblp(corner + edge);
+    let layer = squanLib.sortOblp(corner + edge);
     if (layerMode === 'small' && layer.length > 4) layer = complement(layer);
     if (layerMode === 'big'   && layer.length < 4) layer = complement(layer);
     if (!layer) { nextCard(); return; }
@@ -201,18 +228,24 @@ function reveal() {
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
   times.push(parseFloat(elapsed));
 
+  const errs = [];
+
   let answer = '';
   try {
     answer = oneface ? squanLib.mattToLayer(memo) : squanLib.mattToNonSpe(memo);
   } catch(e) {
     answer = '(unknown)';
+    errs.push(describeError(e));
   }
 
   try {
     document.getElementById('vizArea').innerHTML = drawOblViz(memo, inverted, oneface);
   } catch(e) {
     console.warn('OBL viz error:', e);
+    errs.push(describeError(e));
   }
+
+  showError(errs);
 
   document.getElementById('answerText').textContent = answer;
   document.getElementById('timeText').textContent   = `${elapsed}s`;

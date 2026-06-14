@@ -1657,20 +1657,18 @@ export default class SquanLib {
      * @returns {number | boolean} the angle offset, 1-4, or false
      */
     isOBLCase(l, target) {
-        const targetPattern = Object.entries(SquanLib.OBLToEnglish)
-            .find(([, v]) => v === target
-            )?.[0];
+        const targetPattern = SquanLib.OBLToState[target];
         if (!targetPattern) return false;
         // to corner first
         if (l[0] !== l[0].toUpperCase()) l = this.shift(l, -1);
-        for (let m = 0; m < 4; m++) {
+        for (let m = 1; m <= 4; m++) {
             if (targetPattern === this.shift(l, -3 * m)) return m;
         }
         const noTT = !['T', 'tie'].includes(target.split(' ').pop());
         if (noTT) {
             // free to change the color
             const fl = this.layerFlip(l);
-            for (let m = 0; m < 4; m++) {
+            for (let m = 1; m <= 4; m++) {
                 if (targetPattern === this.shift(fl, -3 * m)) return m;
             }
         }
@@ -1821,7 +1819,7 @@ export default class SquanLib {
     mattToNonSpe(m) {
         const [u, d] = m.split(' ');
         return this.speToNonSpe(
-            `${this.layerToOBL(this.mattToLayer(u))}/${this.layerToOBL(this.mattToLayer(d))}`
+            `${this.layerToOBL(this.mattToLayer(u)).obl}/${this.layerToOBL(this.mattToLayer(d)).obl}`
         );
     }
 
