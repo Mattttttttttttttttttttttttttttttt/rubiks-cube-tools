@@ -64,13 +64,12 @@
 </div>
 <script type="module">
 import { buildNav } from '../shared/nav.js';
-import {
-  TOTAL_CORNERS, TOTAL_EDGES, CORNERS, EDGES,
-  sortOblp, toLayerName, toCaseName,
-} from '../shared/sq1lib.js';
+import SquanLib from '../shared/squanlib.js';
 import { getSVG, setPieceColor, resetPiecesColors } from './draw.js';
 
 buildNav('oblp');
+
+const squanLib = new SquanLib();
 
 // ── OBL digit → piece sticker id ─────────────────────────────────────────────
 //
@@ -170,24 +169,24 @@ function nextCard() {
   document.getElementById('invertTag').textContent  = '';
 
   if (oneface) {
-    const corner = rand(TOTAL_CORNERS);
-    const edge   = rand(TOTAL_EDGES);
+    const corner = rand(SquanLib.TOTAL_CORNERS);
+    const edge   = rand(SquanLib.TOTAL_EDGES);
     if (!corner && !edge) { nextCard(); return; }
-    let layer = sortOblp(corner + edge);
+    let layer = SquanLib.sortOblp(corner + edge);
     if (layerMode === 'small' && layer.length > 4) layer = complement(layer);
     if (layerMode === 'big'   && layer.length < 4) layer = complement(layer);
     if (!layer) { nextCard(); return; }
     memo = layer;
   } else {
-    const GROUPS   = CORNERS.length;
-    const corners1 = rand(TOTAL_CORNERS);
-    const edges1   = rand(TOTAL_EDGES);
-    const corners2 = rand(CORNERS[GROUPS - 1 - corners1.length]);
-    const edges2   = rand(EDGES[GROUPS - 1 - edges1.length]);
+    const GROUPS   = SquanLib.CORNERS.length;
+    const corners1 = rand(SquanLib.TOTAL_CORNERS);
+    const edges1   = rand(SquanLib.TOTAL_EDGES);
+    const corners2 = rand(SquanLib.CORNERS[GROUPS - 1 - corners1.length]);
+    const edges2   = rand(SquanLib.EDGES[GROUPS - 1 - edges1.length]);
     const func     = (corners1.length + edges1.length) < 4 ?
                       (m) => "12345678".replace(new RegExp(`[${m}]`, 'g'), '') :
                       (m) => m;
-    memo     = sortOblp(corners1 + edges1) + ' ' + func(sortOblp(corners2 + edges2));
+    memo     = squanLib.sortOblp(corners1 + edges1) + ' ' + func(squanLib.sortOblp(corners2 + edges2));
     inverted = Math.random() < 0.5;
   }
 
@@ -204,7 +203,7 @@ function reveal() {
 
   let answer = '';
   try {
-    answer = oneface ? toLayerName(memo) : toCaseName(memo);
+    answer = oneface ? squanLib.mattToLayer(memo) : squanLib.mattToNonSpe(memo);
   } catch(e) {
     answer = '(unknown)';
   }
