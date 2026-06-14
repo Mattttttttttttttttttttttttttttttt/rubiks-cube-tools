@@ -526,7 +526,7 @@
       const isSingle = groups.length === 1;
       if (isSingle) {
         const n = groups[0].variants.length;
-        sub.textContent = `${n} variant${n !== 1 ? 's' : ''} generated`;
+        sub.textContent = `${n} variant${n !== 1 ? 's' : ''} generated${n > 1 ? ', ranked by approximate relative ergonomics' : ''}`;
       } else {
         const skipped = lines.length - uniqueLines.length;
         const parts = [];
