@@ -373,6 +373,65 @@
       } catch { return algIn.trim(); }
     }
 
+    // ── M/m/e substitution ──
+
+    // An interior diagonal move (x,x) with |x| ∈ {1,2,3} (i.e. an M/m/e move)
+    // can be rewritten as x,x/-x,-x/x,x and merged into its neighbours: negate
+    // the move and add (x,x) to the moves on either side. This is the "other M"
+    // — same effect on the cube, different fingers. Candidates are every interior
+    // move (one between two slices), i.e. 1 ≤ i ≤ n-2; a candidate next to a
+    // boundary merges (x,x) into that boundary misalign move, which is still an
+    // equivalent move sequence. 4/5 are skipped (they are y2s of 2/1) and 6 is
+    // meaningless.
+    function mMoveVariants(numericAlg) {
+      const segs = numericAlg.split('/').map(s => s.trim());
+      const n = segs.length;
+
+      const cands = [];
+      for (let i = 1; i <= n - 2; i++) {
+        const [a, b] = squanLib.addCommas(segs[i] || '0,0').split(',').map(Number);
+        if (a === b && Math.abs(a) >= 1 && Math.abs(a) <= 3) cands.push(i);
+      }
+      if (!cands.length) return [numericAlg];
+
+      // every on/off combination of the candidates
+      const variants = [];
+      const total = 1 << cands.length;
+      for (let mask = 0; mask < total; mask++) {
+        const arr = segs.slice();
+        // apply substitutions left-to-right; each uses the move's current value
+        // (additions keep diagonal moves diagonal, so the identity still holds)
+        for (let k = 0; k < cands.length; k++) {
+          if (!(mask & (1 << k))) continue;
+          const i = cands[k];
+          const x = parseInt(squanLib.addCommas(arr[i]).split(',')[0], 10);
+          const xx = `${x},${x}`;
+          arr[i] = `${squanLib.legalMove(-x)},${squanLib.legalMove(-x)}`;
+          arr[i - 1] = squanLib.addMoves(squanLib.addCommas(arr[i - 1]), xx);
+          arr[i + 1] = squanLib.addMoves(squanLib.addCommas(arr[i + 1]), xx);
+        }
+        variants.push(arr.join('/'));
+      }
+      return variants;
+    }
+
+    // Recompute the (bad finish)/(alignment changes in CS) notes for a numeric
+    // variant — mirrors applyY2s so substituted variants get correct notes.
+    function deriveComment(numericAlg) {
+      const segs = numericAlg.split('/');
+      const firstMove = segs[0];
+      const lastMove = segs[segs.length - 1];
+      const lastIntMove = squanLib.addCommas(segs[segs.length - 2] || '');
+      let comment = '';
+      if (lastIntMove && !SquanLib.GOOD_FINISHES.has(lastIntMove))
+        comment += ' (bad finish)';
+      const { topA: tas, bottomA: bas } = squanLib.getAlignment(firstMove);
+      const { topA: tae, bottomA: bae } = squanLib.getAlignment(lastMove);
+      if (tas !== bas && tas !== tae && tae !== bae)
+        comment += ' (alignment changes in CS)';
+      return comment;
+    }
+
     function computeDerived(lines, karnB) {
       const groups = [];
       const errors = [];
@@ -402,6 +461,10 @@
         const total = 1 << numPos;          // 2^numPos
         const seen = new Map();            // result string → best score
 
+        // match applyY2s's karn-output decision so substituted variants are
+        // emitted in the same format
+        const kOut = karnB === null ? squanLib.isKarn(line) : karnB;
+
         // Every combo is a layer-flip of an alg we already proved parses, so none
         // should fail. If one does, it's a real bug — let it propagate to the
         // top-level handler rather than hiding it.
@@ -410,15 +473,23 @@
           for (let bit = 0; bit < numPos; bit++) if (mask & (1 << bit)) lfLst.push(bit + 1);
           const result = squanLib.applyY2s(line, lfLst, karnB);
           const algOnly = result.replace(/ \(bad finish\)| \(alignment changes in CS\)/g, '').trim();
-          const { score, sliceStart } = squanLib.rateAlg(algOnly);
+          const numericBase = squanLib.isKarn(algOnly) ? squanLib.unkarnify(algOnly) : algOnly;
 
-          // rateAlg recommends a starting slice direction — inject it via the lib
-          // (strip the comment first, then re-attach it) so it isn't lost.
-          const comment = result.match(/(?: \([^)]*\))+$/)?.[0] ?? '';
-          const display = ['/', '\\', '|'].includes(sliceStart)
-            ? squanLib.injectSliceStart(algOnly, sliceStart) + comment
-            : result;
-          if (!seen.has(display) || score > seen.get(display)) seen.set(display, score);
+          // On top of the y2 variant, also try the "other M/m/e": each interior
+          // diagonal move can be swapped for its equivalent form, so enumerate
+          // all combos and treat each as its own variant.
+          for (const numVar of mMoveVariants(numericBase)) {
+            const { score, sliceStart } = squanLib.rateAlg(numVar);
+            const comment = deriveComment(numVar);
+            const out = kOut ? squanLib.karnify(numVar) : numVar;
+
+            // rateAlg recommends a starting slice direction — inject it via the
+            // lib (without the comment, then re-attach it) so it isn't lost.
+            const display = ['/', '\\', '|'].includes(sliceStart)
+              ? squanLib.injectSliceStart(out, sliceStart) + comment
+              : out + comment;
+            if (!seen.has(display) || score > seen.get(display)) seen.set(display, score);
+          }
         }
 
         const sorted = [...seen.entries()]
