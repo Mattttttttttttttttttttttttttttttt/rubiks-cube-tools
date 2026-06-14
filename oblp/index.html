@@ -5,7 +5,10 @@
   <title>OBLP Trainer — cubetools</title>
   <link rel="stylesheet" href="../shared/style.css">
   <style>
-    .fc-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - var(--nav-h));gap:24px;padding:32px}
+    /* Center a bounded "device-sized" band in the viewport so the content
+       never floats absurdly in a giant screen. */
+    .fc-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - var(--nav-h));padding:32px}
+    .fc-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;width:100%;max-width:600px;max-height:820px;overflow-y:auto}
     .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;max-width:560px;padding:36px 40px 32px;text-align:center;cursor:pointer;transition:border-color 0.15s,transform 0.1s;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
     .card:active{transform:scale(0.99)}
     .card:hover{border-color:var(--border-2)}
@@ -36,6 +39,7 @@
 <div id="nav"></div>
 <div class="page">
   <div class="fc-wrap">
+   <div class="fc-inner">
     <div class="controls">
       <div class="mode-switch">
         <button class="mode-btn active" id="modeTwo">Two layer</button>
@@ -61,6 +65,7 @@
       <div class="card-time" id="timeText"></div>
     </div>
     <div id="errBadge" class="format-badge" style="display:none"></div>
+   </div>
   </div>
 </div>
 <script type="module">

@@ -84,7 +84,45 @@ body {
     gap: 20px;
     overflow-x: auto;
     scrollbar-width: none;
+    /* Edge fade-out; --fade-l / --fade-r are toggled on via the fade-l/fade-r
+       classes (set by nav.js) only when there's more to scroll on that side. */
+    --fade-l: 0px;
+    --fade-r: 0px;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
 }
+
+.nav-inner.fade-l { --fade-l: 26px; }
+.nav-inner.fade-r { --fade-r: 26px; }
+
+/* Scroll-affordance chevrons over the faded edges */
+.nav-chevron {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    /* slightly brighter than --text-muted (#909090) */
+    color: #a8a8a8;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 5;
+}
+
+.nav-chevron svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+}
+
+.nav-chevron.left  { left: 3px; }
+.nav-chevron.right { right: 3px; }
+.nav-chevron.left  svg { transform: rotate(90deg); }
+.nav-chevron.right svg { transform: rotate(-90deg); }
+
+.nav-inner.fade-l ~ .nav-chevron.left  { opacity: 1; }
+.nav-inner.fade-r ~ .nav-chevron.right { opacity: 1; }
 
 .nav-inner::-webkit-scrollbar {
     display: none;
