@@ -704,6 +704,20 @@ select {
     display: flex;
     align-items: center;
     gap: 7px;
+    min-width: 0;
+}
+
+/* Let the input wrapper shrink so a long value scrolls inside the input
+   rather than widening the row past the viewport. */
+.solve-row > div {
+    min-width: 0;
+}
+
+/* Higher specificity than the base input[type="text"] rule so the field
+   actually fills the row (and can shrink instead of forcing a scroll). */
+.solve-row .solve-field {
+    width: 100%;
+    min-width: 0;
 }
 
 .solve-num {
@@ -717,6 +731,8 @@ select {
 
 .solve-field {
     flex: 1;
+    width: 100%;
+    min-width: 0;
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);

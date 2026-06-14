@@ -77,6 +77,24 @@
     .key.wide   { min-width: 72px; }
     .key.spacer { background: transparent; border-color: transparent; }
 
+    /* ── Mobile: shrink keys into a phone-keyboard layout that fits the screen ── */
+    @media (max-width: 700px) {
+      .kbd-bottom { padding: 10px 6px 14px; }
+      .keyboard   { width: 100%; gap: 4px; }
+      .kbd-row    { gap: 4px; }
+      .key {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 46px;
+        padding: 0 1px;
+        gap: 0;
+      }
+      .key.wide   { min-width: 0; }
+      .key.spacer { flex: 0.4 1 0; }
+      .key .k { font-size: 0.55rem; }
+      .key .v { font-size: 0.62rem; }
+    }
+
     /* ── Copy button ── */
     #copyBtn {
       margin-bottom: 8px;
@@ -129,6 +147,7 @@
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
+        inputmode="none"
         autofocus
         placeholder="Start typing…"></textarea>
     </div>
@@ -177,6 +196,15 @@ KEYBOARD_ROWS.forEach(row => {
       const kSpan = document.createElement('div'); kSpan.className = 'k'; kSpan.textContent = k;
       const vSpan = document.createElement('div'); vSpan.className = 'v'; vSpan.textContent = DICT[k] ?? '';
       key.append(kSpan, vSpan);
+
+      // Touch / mouse input: focus the box (no OS keyboard thanks to
+      // inputmode="none") then feed the existing keydown handler.
+      key.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        ubox.focus();
+        ubox.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+        ubox.dispatchEvent(new KeyboardEvent('keyup',   { key: k, bubbles: true, cancelable: true }));
+      });
     }
     rowDiv.appendChild(key);
   });

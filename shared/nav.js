@@ -107,6 +107,27 @@ export function buildNav(activePath) {
   modal.addEventListener('click', e => { if (!inner.contains(e.target)) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+  // ── Center the active nav button on load (matters on mobile where the
+  //    nav scrolls horizontally) ──
+  const activeEl = nav.querySelector('.nav-tool.active');
+  const navInner = nav.querySelector('.nav-inner');
+  if (activeEl && navInner) {
+    navInner.scrollLeft = activeEl.offsetLeft - (navInner.clientWidth - activeEl.offsetWidth) / 2;
+  }
+
+  // ── Back-button handling (Android etc.) ──
+  // Only trap back when the user deep-linked into this page (no in-site
+  // history to go back to) — otherwise leave the browser's native back alone.
+  //   • Deep-linked sub-tool page → back goes to the cubetools home page.
+  //   • Deep-linked home page      → back goes to the parent website ("..").
+  const rootUrl      = new URL(base, location.href).href;
+  const cameFromSite = document.referrer && document.referrer.startsWith(rootUrl);
+  if (!cameFromSite) {
+    const backTarget = activePath ? base : parentHref;
+    history.pushState(null, '', location.href);
+    window.addEventListener('popstate', () => { location.href = backTarget; }, { once: true });
+  }
+
   const popover = document.getElementById('linkPopover');
 
   document.querySelectorAll('.modal-link').forEach(link => {
