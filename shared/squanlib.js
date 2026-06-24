@@ -151,34 +151,32 @@ export default class SquanLib {
         "1,1": "M", "-1,-1": "M'",
         "5,-1": "u2", "-5,1": "u2'",
         "-1,5": "d2", "1,-5": "d2'",
-        "5,2": "K", "-5,-2": "K'",
-        "2,5": "k", "-2,-5": "k'",
     };
 
     // -------------------------------------------------------------------------
     // baseKarnToHighKarn: longest first, base karn → high karn
     // -------------------------------------------------------------------------
     static baseKarnToHighKarn = {
-        "U U' U U'": "U4", "U' U U' U": "U4'",
-        "D D' D D'": "D4", "D' D D' D": "D4'",
-        "u u' u u'": "u4", "u' u u' u": "u4'",
-        "d d' d d'": "d4", "d' d d' d": "d4'",
+        "U' U U' U": "U4'", "U U' U U'": "U4",
+        "D' D D' D": "D4'", "D D' D D'": "D4",
+        "u' u u' u": "u4'", "u u' u u'": "u4",
+        "d' d d' d": "d4'", "d d' d d'": "d4",
 
-        "U U' U": "U3", "U' U U'": "U3'",
-        "D D' D": "D3", "D' D D'": "D3'",
-        "u u' u": "u3", "u' u u'": "u3'",
-        "d d' d": "d3", "d' d d'": "d3'",
-        "F F' F": "F3", "F' F F'": "F3'",
-        "f f' f": "f3", "f' f f'": "f3'",
+        "U' U U'": "U3'", "U U' U": "U3",
+        "D' D D'": "D3'", "D D' D": "D3",
+        "u' u u'": "u3'", "u u' u": "u3",
+        "d' d d'": "d3'", "d d' d": "d3",
+        "F' F F'": "F3'", "F F' F": "F3",
+        "f' f f'": "f3'", "f f' f": "f3",
 
-        "U U'": "W", "U' U": "W'",
-        "D D'": "B", "D' D": "B'",
-        "u u'": "w", "u' u": "w'",
-        "d d'": "b", "d' d": "b'",
-        "F F'": "F2", "F' F": "F2'",
-        "f f'": "f2", "f' f": "f2'",
-        "U U": "UU", "U' U'": "UU'",
-        "D D": "DD", "D' D'": "DD'",
+        "U' U": "W'", "U U'": "W",
+        "D' D": "B'", "D D'": "B",
+        "u' u": "w'", "u u'": "w",
+        "d' d": "b'", "d d'": "b",
+        "F' F": "F2'", "F F'": "F2",
+        "f' f": "f2'", "f f'": "f2",
+        "U' U'": "UU'", "U U": "UU",
+        "D' D'": "DD'", "D D": "DD",
     };
 
     /**
@@ -363,7 +361,21 @@ export default class SquanLib {
     static get LAYERL() { return 12; }
     static get THREE_FOUR_L() { return 18; }
     static get CUBEL() { return 24; }
-    static get SOLVED() { return "bBBbBBbBBbBBwWWwWWwWWwWW"; }
+    static get SOLVED_A() { return "bBBbBBbBBbBBwWWwWWwWWwWW"; }
+    static get SOLVED_a() { return "BBbBBbBBbBBbWWwWWwWWwWWw"; }
+    static get SLICE_a() { return "WWwWWwBBbBBbBBbBBbWWwWWw"; }
+    static get SLICE_A() { return "wWWwWWbBBbBBbBBbBBwWWwWW"; }
+
+    static A_MOVES = [
+        [3, 0], [-3, 0], [0, 3], [0, -3], [3, 3],
+        [2, -1], [-1, 2], [-4, -1], [-1, -4], [2, -4], [2, 2], [-1, -1], [5, -1]
+    ];
+    static a_MOVES = [
+        [3, 0], [-3, 0], [0, 3], [0, -3], [3, 3],
+        [-2, 1], [1, -2], [4, 1], [1, 4], [-2, 4], [-2, -2], [1, 1], [-5, 1]
+    ];
+
+    static KARNL = SquanLib.a_MOVES.length;
 
     /**
      * POSSIBLE_OBL: every OBL case as [specifier, U, D].
@@ -525,7 +537,72 @@ export default class SquanLib {
     static TOTAL_EDGES = ['', '2', '4', '6', '8', '24', '26', '28', '46', '48', '68', '246', '248', '268', '468', '2468'];
 
     /**
-     * @param {object} [tempReplacements]: initial manual unkarnifications.
+     * evenPLL: PBL faces without parity
+     */
+    static evenPLL = [
+        "-", "Al", "Ar", "E", "F", "Gal", "Gar", "Gol", "Gor", "H", "Ja", "Jm",
+        "Na", "Nm", "Rl", "Rr", "T", "Ul", "Ur", "V", "Y", "Z"
+    ];
+
+    /**
+     * oddPLL: PBL faces with parity
+     */
+    static oddPLL = [
+        "Adj", "Opp", "pJ", "pN", "Ba", "Bm", "Cl", "Cr", "Da", "Dm",
+        "Ka", "Km", "M", "Ol", "Or", "Pl", "Pr", "Q", "Sa", "Sm", "W", "X"
+    ];
+
+    /**
+     * CPAdjPLL: PBL faces that have one headlight
+     */
+    static CPAdjPLL = ["Al", "Ar", "F", "Gal", "Gar", "Gol", "Gor", "Ja", "Jm", "Rl", "Rr", "T", "pJ", "Ba", "Bm", "Cl", "Cr", "Da", "Dm", "Ka", "Km", "M", "Pl", "Pr"];
+
+    /**
+     * CPOppPLL: diag PBL faces
+     */
+    static CPOppPLL = ["E", "Na", "Nm", "V", "Y", "pN", "Q", "Sa", "Sm", "X"];
+
+    /**
+     * CPSolvedPLL: CP solved PBL faces
+     */
+    static CPSolvedPLL = ["-", "H", "Ul", "Ur", "Z", "Adj", "Opp", "Ol", "Or", "W"];
+
+    /**
+     * PBLWeights: the weight factor of PBL faces that are not 4
+     */
+    static PBLWeights = {
+        "-": 1, E: 2, H: 1, Na: 1, Nm: 1, Opp: 2,
+        Ol: 1, Or: 1, pN: 2, Q: 1, X: 1, Z: 2,
+    };
+
+
+    /**
+     * PLL Family: the PLLs that are special (and are their own family)
+     */
+    static PLLFamily = ["-", "Adj", "pJ", "pN", "Opp"];
+
+    /**
+     * PLLFamilyLen: the length of the PLL family that contains a PLL
+     * Ga and Go are split.
+     * e.g. Ul: 2, because ["Ul", "Ur"] is 2 long
+     */
+    static PLLFamilyLen = {
+        "-": 1, Al: 2, Ar: 2, E: 1, F: 1, Gal: 2, Gar: 2, Gol: 2, Gor: 2,
+        H: 1, Ja: 2, Jm: 2, Na: 2, Nm: 2, Rl: 2, Rr: 2, T: 1, Ul: 2, Ur: 2,
+        V: 1, Y: 1, Z: 1, Adj: 1, Opp: 1, pJ: 1, pN: 1, Ba: 2, Bm: 2, Cl: 2,
+        Cr: 2, Da: 2, Dm: 2, Ka: 2, Km: 2, M: 1, Ol: 2, Or: 2, Pl: 2, Pr: 2,
+        Q: 1, Sa: 2, Sm: 2, W: 1, X: 1
+    };
+
+    /**
+     * OBLWeights: the weight factor of OBL faces that are not 4
+     */
+    static OBLWeights = {
+        "-": 1, V: 2, F: 2, Q: 1, N: 2,
+    };
+
+    /**
+     * @param {object} [tempReplacements] initial manual unkarnifications.
      */
     constructor(tempReplacements = { "meow :3": "meow :3" }) {
         // place to put manual unkarnifications
@@ -565,11 +642,15 @@ export default class SquanLib {
      *
      * @param {string} str the string to be replaced
      * @param {object} dict the dictionary
+     * @param {boolean} isolated whether matches need to be isolated in / \ | space or boundaries
      * @returns {string} the fully replaced string
      */
-    dictReplace(str, dict) {
+    dictReplace(str, dict, isolated = true) {
+        const body = '(?:' +
+            Object.keys(dict).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') +
+            ')';
         const pattern = new RegExp(
-            Object.keys(dict).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+            isolated ? '(?<=^|[ /\\\\|])' + body + '(?=$|[ /\\\\|])' : body,
             'g'
         );
         let prev;
@@ -606,13 +687,13 @@ export default class SquanLib {
     }
 
     /**
-     * isKarn: returns true if the string uses any letters
+     * isKarn: returns true if the string uses any letters, excluding A and a
      *
      * @param {string} str the alg
-     * @returns {boolean} whether the alg contains letters
+     * @returns {boolean} whether the alg contains letters, excluding A and a
      */
     isKarn(str) {
-        return /[a-zA-Z]/.test(str);
+        return /[b-zB-Z]/.test(str);
     }
 
     /**
@@ -894,7 +975,7 @@ export default class SquanLib {
      * @returns {string} the cube post-moves
      */
     doMoves(ms, s) {
-        if (s === undefined) s = SquanLib.SOLVED;
+        if (s === undefined) s = SquanLib.SOLVED_A;
         for (const tok of this.unkarnify(ms).split('/')) {
             const m = tok.trim();
             if (m !== '') {
@@ -1091,8 +1172,8 @@ export default class SquanLib {
      * addMoves("3,0",  "-3,0") // → "0,0"
      * addMoves("2,-1", "1,-2") // → "3,-3"
      * addMoves("5,-1", "3,0")  // → "-4,-1"
-     * addMoves("A",    "2,-1") // → "a"       (2 % 3 !== 0 → flip)
-     * addMoves("A",    "3,0")  // → "A"       (3 % 3 === 0 → no flip)
+     * addMoves("A",    "2,-1") // → "a"
+     * addMoves("A",    "3,0")  // → "A"
      */
     addMoves(move1, move2) {
         if (!move1 && !move2) throw new Error("addMoves: both moves are empty.");
@@ -1143,7 +1224,7 @@ export default class SquanLib {
      */
     optimize(alg) {
         const optimKeys = Object.keys(SquanLib.OPTIM);
-        while (this.dictReplace(alg, SquanLib.OPTIM) !== alg) {
+        while (this.dictReplace(alg, SquanLib.OPTIM, false) !== alg) {
             const moves = alg.split('/').map(m => m.trim());
             let atSlice = 0;
             let cycleCompleted = false;
@@ -1626,12 +1707,15 @@ export default class SquanLib {
     }
 
     /**
-     * speToNonSpe: get the nonspecific OBL of a specific one
+     * speToNonSpe: get the non-specific OBL of a specific one
      *
-     * @param {string} obl the specific obl
-     * @returns {string} the unspecific obl
+     * @param {string} obl the specific obl, in English
+     * @param {boolean} canonical whether to return the canonical naming
+     * @returns {string} the unspecific obl, in English
+     * @example "left bunny/left thumb" → "good thumb/bunny"
+     * @example "left bunny/left thumb", false → "good bunny/thumb"
      */
-    speToNonSpe(obl) {
+    speToNonSpe(obl, canonical = true) {
         const [uObl, dObl] = obl.split('/');
         const u = uObl.split(' ').pop();
         const d = dObl.split(' ').pop();
@@ -1647,6 +1731,54 @@ export default class SquanLib {
             }
         }
         throw new Error(`speToNonSpe: No non-specific OBL found for: ${obl}`);
+    }
+
+    /**
+     * nonSpeToSpe: get the list of specific OBLs from a non-specific OBL
+     *
+     * @param {string} obl the non-specific OBL name, in english
+     * @returns {string[]} all the specific OBLs that it corresponds to
+     */
+    nonSpeToSpe(obl) {
+        let ret = [];
+        if (!obl in SquanLib.OBL_TRANSLATION)
+            throw new Error("nonSpeToSpeList: not in OBL_TRANSLATION. obl: " + obl);
+        for (let spec of SquanLib.OBL_TRANSLATION[obl]) {
+            ret.push(spec);
+            let spec2 = spec.split("/")[1] + "/" + spec.split("/")[0];
+            if (spec2 !== spec)
+                ret.push(spec2)
+        }
+        return ret;
+    }
+
+    /**
+     * speToNonSpeMult: speToNonSpe, but for multiple specific OBLs, and with deduping
+     *
+     * @param {string[]} l an array of specific OBLs, in English
+     * @returns {string[]} an array of non-specific OBLs, in English, after deduping
+     * @example ["left thumb/left bunny", "left bunny/left thumb"] → ["good thumb/bunny"]
+     */
+    speToNonSpeMult(l) {
+        let ret_repeats = [];
+        for (let obl of l)
+            ret_repeats.push(getNonSpe(obl));
+        return [...new Set(ret_repeats)]; // dedupe
+    }
+
+    /**
+     * nonSpeToSpeMult: nonSpeToSpe, but for multiple non-specific OBLs
+     *
+     * @param {string[]} l an array of non-specific OBLs, in English
+     * @returns {string[]} a flattened array of the corresponding specific OBLs, in English
+     */
+    nonSpeToSpeMult(l) {
+        // l: a list of non-specific obls in english
+        // returns: a list of specific obls in english
+        let ret = [];
+        for (let obl of l)
+            ret.push(...getSpe(obl));
+        return ret;
     }
 
     /**
@@ -1831,5 +1963,61 @@ export default class SquanLib {
      */
     sortOblp(seq) {
         return [...seq].sort().join('');
+    }
+
+    // =========================================================================
+    // SECTION 10: Statistics
+    // =========================================================================
+    /**
+     * getPBLWeight: get the weight factor of a PBL
+     *
+     * @param {string} pbl the PBL, with slashes and optional barflip sign
+     * @returns {number} the weight. some power of 2.
+     */
+    getPBLWeight(pbl) {
+        const [u, d] = pbl.replace(/(?<!\/)[+-]$/, '').split("/");
+        return (SquanLib.PBLWeights[u] ?? 4) * (SquanLib.PBLWeights[d] ?? 4);
+    }
+
+    /**
+     * getPBLCaseCount: multiplies the PLLFamilyLen of the top and bottom case
+     *
+     * @param {string[]} pbl an array of [u, d] that represents a PBL case
+     * @returns {number} the case counts in the family that contanis this PBL
+     */
+    getPBLCaseCount(pbl) {
+        return SquanLib.PLLFamilyLen[pbl[0]] * SquanLib.PLLFamilyLen[pbl[1]];
+    }
+
+    /**
+     * getPBLFamily: get the family name of a PBL
+     *
+     * @param {string} pbl the PBL, with slashes and optional barflip sign
+     * @returns {string} the PBL family name
+     * @example "Al/Ul" → "A/U"
+     */
+    getPBLFamily(pbl) {
+        const [u, d] = pbl.replace(/(?<!\/)[+-]$/, '').split("/");
+        function getPLLFamily(pll) {
+            if (SquanLib.PLLFamily.includes(pll)) return pll;
+            else if (pll.charAt(0) === "G") return pll.slice(0, 2); // Ga or Go
+            else return pll.match(/[A-Z]/g)?.join(''); // the uppercase portion
+        }
+        return getPLLFamily(u) + "/" + getPLLFamily(d);
+    }
+
+    /**
+     * getOBLWeight: get the weight of a specific OBL
+     *
+     * @param {string} obl new naming OBL, joined by a slash
+     * @returns {number} the weight of the OBL
+     * @example "D/D" → 16
+     * "TH/TH" → 16
+     * "J/V" → 8
+     */
+    getOBLWeight(obl) {
+        const [u, d] = obl.split("/");
+        return (SquanLib.OBLWeights[u.match(/[A-Z]/g)?.join('')] ?? 4) *
+            (SquanLib.OBLWeights[d.match(/[A-Z]/g)?.join('')] ?? 4);
     }
 }
