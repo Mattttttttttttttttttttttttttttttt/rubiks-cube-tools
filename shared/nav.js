@@ -70,7 +70,7 @@ export function buildNav(activePath) {
           </div>
           <div class="modal-image-col">
             <div class="modal-img-slot">
-              <img src="../icons/panda.jpg" alt="Mr. Panda">
+              <img src="/icons/panda.jpg" alt="Mr. Panda">
             </div>
             <div class="modal-img-caption">say hi to Mr. Panda!!</div>
           </div>
