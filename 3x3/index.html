@@ -456,6 +456,7 @@ function handleCtrl(e) {
     if (redoStack.length) { undoStack.push({ inputStr, cursorInputPos }); applyHistoryState(redoStack.pop()); }
     return true;
   }
+  if (/^[a-zA-Z0-9]$/.test(e.key)) return true; // valid shortcut
   return false; // e.g. let browser handle
 }
 
@@ -467,7 +468,7 @@ ubox.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && handleCtrl(e)) return;
   if (e.altKey) return;
 
-  const moveToks = currentTokens.filter(t => t.type === 'move');
+  const moveToks = currentTokens.filter(t => t.type === 'move' || t.type === 'nl' || t.type === 'sp');
   const mod = e.ctrlKey || e.metaKey;
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -557,7 +558,7 @@ ubox.addEventListener('keydown', e => {
   }
 
   // ── Separator (Enter and Space both insert a line break) ──────────────────
-  if (e.key === 'Enter') {
+  if (e.key === 'Enter' || e.key === "Space") {
     e.preventDefault();
     saveHistory();
     deleteSelectedTokens();
