@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap');
 
 :root {
     --bg: #262626;
@@ -18,7 +18,7 @@
     --side-pad: 28px;
     --font-ui: 'Barlow Semi Condensed', sans-serif;
     --font-mono: 'Source Code Pro', ui-monospace, Menlo, Consolas, monospace;
-    --font-display: 'Playfair Display', serif;
+    --font-display: 'Noto Serif', serif;
 }
 
 *,
@@ -312,7 +312,7 @@ body {
     font-size: 1.9rem;
     font-weight: 900;
     line-height: 1.05;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.03em;
     margin-bottom: 16px;
 }
 
@@ -950,7 +950,7 @@ select {
     font-weight: 900;
     letter-spacing: 0.01em;
     line-height: 1;
-    margin-bottom: 18px;
+    margin-bottom: 30px;
     color: var(--accent);
 }
 
